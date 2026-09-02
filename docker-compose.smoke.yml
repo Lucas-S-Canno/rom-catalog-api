@@ -1,0 +1,70 @@
+# Self-contained smoke test: Postgres + MinIO + the built image.
+# Used by scripts/smoke.sh (locally and in CI).
+#
+#   API_IMAGE=rom-catalog-api:ci docker compose -p rcsmoke -f docker-compose.smoke.yml up -d --wait
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: romcatalog
+      POSTGRES_PASSWORD: romcatalog
+      POSTGRES_DB: romcatalog
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U romcatalog"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2023-09-04T19-57-37Z
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9002:9000"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  createbucket:
+    image: minio/mc:RELEASE.2023-09-07T22-48-55Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/roms
+      "
+
+  api:
+    image: ${API_IMAGE:-rom-catalog-api:ci}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      createbucket:
+        condition: service_completed_successfully
+    environment:
+      APP_ENV: local
+      DB_URL: jdbc:postgresql://postgres:5432/romcatalog
+      DB_USER: romcatalog
+      DB_PASSWORD: romcatalog
+      MINIO_ENDPOINT: http://minio:9000
+      # signed download URLs must be reachable from the host running the smoke script
+      MINIO_PUBLIC_ENDPOINT: http://localhost:9002
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: roms
+      JWT_SECRET: smoke-test-secret-not-for-real-use
+    ports:
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+      start_period: 40s

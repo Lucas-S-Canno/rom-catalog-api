@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: rom-catalog
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - service.yaml
+  - deployment.yaml
+  - cloudflared.yaml
+  # secret.example.yaml is a template — apply the real Secret separately
+  # (see k8s/README.md). It is intentionally not listed here.
+
+images:
+  - name: ghcr.io/lucas-s-canno/rom-catalog-api
+    newTag: latest

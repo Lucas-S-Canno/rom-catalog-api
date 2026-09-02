@@ -1,0 +1,27 @@
+# Build output & caches
+build/
+.gradle/
+.kotlin/
+*/build/
+
+# VCS & IDE
+.git/
+.github/
+.idea/
+*.iml
+.vscode/
+
+# Local-only / not needed in the image context
+.spec/
+.test-roms/
+.env
+.env.*
+docker-compose*.yml
+scripts/
+k8s/
+*.md
+LICENSE
+
+# OS noise
+.DS_Store
+Thumbs.db

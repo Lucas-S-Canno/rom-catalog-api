@@ -1,0 +1,18 @@
+<configuration>
+    <!-- Structured JSON logs (logback native encoder, no extra dependency). MDC
+         includes `requestId`, populated by the CallId plugin. -->
+    <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.JsonEncoder">
+            <withMDC>true</withMDC>
+        </encoder>
+    </appender>
+
+    <root level="${LOG_LEVEL:-INFO}">
+        <appender-ref ref="JSON"/>
+    </root>
+
+    <logger name="io.ktor.server.Application" level="INFO"/>
+    <logger name="org.flywaydb" level="INFO"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+    <logger name="Exposed" level="WARN"/>
+</configuration>

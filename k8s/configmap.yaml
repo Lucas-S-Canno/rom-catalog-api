@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rom-catalog-api-config
+  namespace: rom-catalog
+data:
+  APP_ENV: "production"
+  LOG_LEVEL: "INFO"
+  PORT: "8080"
+
+  # JWT — the signing secret itself lives in the Secret, not here.
+  JWT_ISSUER: "rom-catalog-api"
+  JWT_AUDIENCE: "rom-catalog-app"
+  JWT_REALM: "rom-catalog"
+
+  # MinIO. ENDPOINT is the in-cluster address the API talks to; PUBLIC_ENDPOINT is
+  # what the presigned download URLs are signed with and MUST be reachable from the
+  # phone (exposed via Cloudflare Tunnel — see cloudflared.yaml, decision D-02).
+  MINIO_ENDPOINT: "http://minio.storage.svc.cluster.local:9000"
+  MINIO_PUBLIC_ENDPOINT: "https://storage.lucascanno.com.br"
+  MINIO_BUCKET: "roms"
+  MINIO_REGION: "us-east-1"
+
+  DOWNLOAD_URL_TTL_SECONDS: "900"
+  DB_CONNECTION_TIMEOUT_MS: "10000"
+  STORAGE_TIMEOUT_MS: "10000"

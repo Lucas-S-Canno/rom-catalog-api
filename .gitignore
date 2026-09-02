@@ -1,0 +1,80 @@
+# ─────────────────────────────────────────────────────────────
+# ROM Catalog API — .gitignore
+# ─────────────────────────────────────────────────────────────
+
+# Planejamento interno / spec (não versionar)
+.spec/
+
+# Segredos e configuração de ambiente
+.env
+.env.*
+!.env.example
+*.local
+secrets/
+*.pem
+*.key
+*.p12
+*.jks
+kubeconfig
+*.kubeconfig
+
+# ─── Gradle ───
+.gradle/
+build/
+out/
+bin/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/**/build/
+
+# ─── Kotlin ───
+.kotlin/
+
+# ─── IntelliJ IDEA ───
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# ─── Eclipse / VS Code / NetBeans ───
+.classpath
+.project
+.settings/
+.vscode/
+nbproject/private/
+
+# ─── Sistema operacional ───
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Logs e relatórios ───
+*.log
+logs/
+build/reports/
+*.hprof
+
+# ─── Testes / Testcontainers ───
+.testcontainers.properties
+**/test-results/
+
+# ─── Infra local (volumes / dados de container) ───
+/data/
+pgdata/
+miniodata/
+docker-compose.override.yml
+
+# ─── ROMs, capas e fixtures binárias (NUNCA versionar) ───
+*.gba
+*.nds
+*.3ds
+*.cia
+*.zip
+*.7z
+/roms-local/
+/ingest/
+/fixtures/roms/
+/.test-roms/
+
+# ─── Deploy: segredo real do K8s (só o .example é versionado) ───
+/k8s/secret.yaml
+/k8s/*.secret.yaml

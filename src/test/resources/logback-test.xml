@@ -1,0 +1,19 @@
+<configuration>
+    <!-- Plain, human-readable logs for the test run (overrides the JSON prod config). -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{28} reqId=%X{requestId:-} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="${LOG_LEVEL:-INFO}">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+    <logger name="org.flywaydb" level="WARN"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+    <logger name="Exposed" level="ERROR"/>
+    <logger name="org.testcontainers" level="WARN"/>
+    <logger name="tc" level="WARN"/>
+    <logger name="com.github.dockerjava" level="WARN"/>
+</configuration>
