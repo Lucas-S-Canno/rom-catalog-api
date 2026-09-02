@@ -16,7 +16,11 @@ data:
   # MinIO. ENDPOINT is the in-cluster address the API talks to; PUBLIC_ENDPOINT is
   # what the presigned download URLs are signed with and MUST be reachable from the
   # phone (exposed via Cloudflare Tunnel — see cloudflared.yaml, decision D-02).
-  MINIO_ENDPOINT: "http://minio.storage.svc.cluster.local:9000"
+  #
+  # "http://minio:9000" assumes MinIO runs in THIS namespace (k8s/infra/ does).
+  # If it lives elsewhere: "http://minio.<ns>.svc.cluster.local:9000", or the LAN
+  # address of an external MinIO.
+  MINIO_ENDPOINT: "http://minio:9000"
   MINIO_PUBLIC_ENDPOINT: "https://storage.lucascanno.com.br"
   MINIO_BUCKET: "roms"
   MINIO_REGION: "us-east-1"

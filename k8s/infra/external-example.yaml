@@ -1,0 +1,53 @@
+# USE THIS INSTEAD OF postgres.yaml / minio.yaml when Postgres and/or MinIO
+# already run OUTSIDE the cluster (another VM, a NAS, bare Docker on the homelab).
+#
+# It gives the pod a stable in-cluster name that resolves to a LAN address, so the
+# app's config (`postgres:5432`, `minio:9000`) does not need to change.
+# Replace the IPs/ports with your real ones and `kubectl apply -f` this file.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: rom-catalog
+spec:
+  clusterIP: None          # headless — the Endpoints below carry the address
+  ports:
+    - name: pg
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: postgres            # must match the Service name
+  namespace: rom-catalog
+subsets:
+  - addresses:
+      - ip: 192.168.1.50    # <-- your Postgres host on the LAN
+    ports:
+      - name: pg
+        port: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: rom-catalog
+spec:
+  clusterIP: None
+  ports:
+    - name: s3
+      port: 9000
+      targetPort: 9000
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: minio
+  namespace: rom-catalog
+subsets:
+  - addresses:
+      - ip: 192.168.1.50    # <-- your MinIO host on the LAN
+    ports:
+      - name: s3
+        port: 9000
