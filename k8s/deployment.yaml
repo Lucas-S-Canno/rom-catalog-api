@@ -26,6 +26,10 @@ spec:
         runAsUser: 10001
         seccompProfile:
           type: RuntimeDefault
+      # Needed only while the GHCR package is private. Harmless if it is public
+      # (kubelet just ignores a pull secret it cannot use). See k8s/README.md.
+      imagePullSecrets:
+        - name: ghcr-pull
       containers:
         - name: api
           image: ghcr.io/lucas-s-canno/rom-catalog-api:latest

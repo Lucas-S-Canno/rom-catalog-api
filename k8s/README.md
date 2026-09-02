@@ -24,12 +24,23 @@ Manifests here are plain YAML + a `kustomization.yaml`. Namespace: `rom-catalog`
 ## First deploy
 
 ```bash
-# 1. Build + push the image (or let CI do it on merge to main)
-docker build -t ghcr.io/lucas-s-canno/rom-catalog-api:latest .
-docker push ghcr.io/lucas-s-canno/rom-catalog-api:latest
+kubectl create namespace rom-catalog
+
+# 1. Image access. CI already pushes ghcr.io/lucas-s-canno/rom-catalog-api on
+#    merge to main. The package is PRIVATE by default — pick one:
+#
+#  a) make it public (no REST endpoint for this — use the web UI):
+#     https://github.com/users/Lucas-S-Canno/packages/container/rom-catalog-api/settings
+#     -> Danger Zone -> Change visibility -> Public
+#
+#  b) or keep it private and give the namespace a pull secret (deployment.yaml
+#     already references `ghcr-pull`); PAT needs the read:packages scope:
+kubectl -n rom-catalog create secret docker-registry ghcr-pull \
+  --docker-server=ghcr.io \
+  --docker-username=Lucas-S-Canno \
+  --docker-password='<PAT with read:packages>'
 
 # 2. Create the real Secret (NOT from the committed template)
-kubectl create namespace rom-catalog
 kubectl -n rom-catalog create secret generic rom-catalog-api-secret \
   --from-literal=JWT_SECRET="$(openssl rand -base64 48)" \
   --from-literal=DB_URL="jdbc:postgresql://<pg-host>:5432/romcatalog" \
@@ -38,13 +49,18 @@ kubectl -n rom-catalog create secret generic rom-catalog-api-secret \
   --from-literal=MINIO_ACCESS_KEY="<key>" \
   --from-literal=MINIO_SECRET_KEY="<secret>"
 
-# 3. Cloudflare Tunnel credentials (see header of cloudflared.yaml), then set the
-#    tunnel id in cloudflared-config.
+# 3. Point the config at your real infra: MINIO_ENDPOINT / MINIO_PUBLIC_ENDPOINT
+#    in configmap.yaml and DB_URL in the Secret above. Create the `roms` bucket.
 
-# 4. Apply everything
+# 4. Cloudflare Tunnel credentials (see header of cloudflared.yaml), then set the
+#    tunnel id in cloudflared-config. Or, to reuse an existing homelab tunnel,
+#    add ingress rules for api./storage.lucascanno.com.br there and drop
+#    cloudflared.yaml from kustomization.yaml.
+
+# 5. Apply everything
 kubectl apply -k k8s/
 
-# 5. Watch it come up
+# 6. Watch it come up
 kubectl -n rom-catalog rollout status deploy/rom-catalog-api
 kubectl -n rom-catalog get pods
 ```
