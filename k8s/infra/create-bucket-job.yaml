@@ -1,3 +1,6 @@
+# One-shot: create the `roms` bucket. NO ttlSecondsAfterFinished on purpose — if
+# the completed Job self-deletes, Fleet sees drift and keeps recreating it, which
+# shows up as "object has been modified" churn on the bundle.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -5,7 +8,6 @@ metadata:
   namespace: rom-catalog
 spec:
   backoffLimit: 20
-  ttlSecondsAfterFinished: 600
   template:
     spec:
       restartPolicy: OnFailure
