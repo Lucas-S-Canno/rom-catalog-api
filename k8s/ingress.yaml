@@ -1,0 +1,49 @@
+# Host-based routing for an EXTERNAL cloudflared (running with config.yml on a
+# homelab host, outside the cluster). It cannot resolve *.svc.cluster.local, so
+# it hits the cluster's ingress controller (Traefik on K3s, :80) which routes by
+# Host header to these Services.
+#
+# In cloudflared's config.yml, point BOTH hostnames at your Traefik target
+# (the same `service:` URL your other apps already use), e.g.:
+#   - hostname: api.lucascanno.com.br
+#     service: http://<k3s-node-ip>:80
+#   - hostname: storage.lucascanno.com.br
+#     service: http://<k3s-node-ip>:80
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rom-catalog-api
+  namespace: rom-catalog
+spec:
+  rules:
+    - host: api.lucascanno.com.br
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rom-catalog-api
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minio-s3
+  namespace: rom-catalog
+  annotations:
+    # MinIO uploads/downloads can be large; don't let Traefik buffer them.
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+    - host: storage.lucascanno.com.br
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000

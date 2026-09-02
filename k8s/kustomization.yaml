@@ -8,7 +8,8 @@ resources:
   - configmap.yaml
   - service.yaml
   - deployment.yaml
-#  - cloudflared.yaml
+  - ingress.yaml        # host routing for an external cloudflared via Traefik
+#  - cloudflared.yaml   # only if you run cloudflared INSIDE the cluster
   # secret.example.yaml is a template — apply the real Secret separately
   # (see k8s/README.md). It is intentionally not listed here.
 
