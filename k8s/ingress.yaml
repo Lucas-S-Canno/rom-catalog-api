@@ -5,9 +5,9 @@
 #
 # In cloudflared's config.yml, point BOTH hostnames at your Traefik target
 # (the same `service:` URL your other apps already use), e.g.:
-#   - hostname: api.lucascanno.com.br
+#   - hostname: rom-catalog-api.lucascanno.com.br
 #     service: http://<k3s-node-ip>:80
-#   - hostname: storage.lucascanno.com.br
+#   - hostname: rom-catalog-storage.lucascanno.com.br
 #     service: http://<k3s-node-ip>:80
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -16,7 +16,7 @@ metadata:
   namespace: rom-catalog
 spec:
   rules:
-    - host: api.lucascanno.com.br
+    - host: rom-catalog-api.lucascanno.com.br
       http:
         paths:
           - path: /
@@ -37,7 +37,7 @@ metadata:
     traefik.ingress.kubernetes.io/router.entrypoints: web
 spec:
   rules:
-    - host: storage.lucascanno.com.br
+    - host: rom-catalog-storage.lucascanno.com.br
       http:
         paths:
           - path: /

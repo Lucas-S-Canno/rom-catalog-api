@@ -235,7 +235,7 @@ bash scripts/smoke.sh rom-catalog-api:local   # sobe Postgres+MinIO+imagem e che
 
 ## Deploy (K3s)
 
-Manifests + runbook em [`k8s/`](k8s/README.md): `namespace`, `configmap`, `secret.example`, `deployment` (1 réplica, probes em `/health` e `/health/ready`, limites de recurso), `service` (ClusterIP) e `cloudflared` (Tunnel expondo `api.lucascanno.com.br` e `storage.lucascanno.com.br` — decisão D-02, sem abrir portas).
+Manifests + runbook em [`k8s/`](k8s/README.md): `namespace`, `configmap`, `secret.example`, `deployment` (1 réplica, probes em `/health` e `/health/ready`, limites de recurso), `service` (ClusterIP) e `cloudflared` (Tunnel expondo `rom-catalog-api.lucascanno.com.br` e `rom-catalog-storage.lucascanno.com.br` — decisão D-02, sem abrir portas).
 
 ```bash
 # imagem publicada pelo CI em ghcr.io/<owner>/rom-catalog-api no merge para main
@@ -246,7 +246,7 @@ kubectl -n rom-catalog rollout status deploy/rom-catalog-api
 
 Rollback: `kubectl -n rom-catalog rollout undo deploy/rom-catalog-api`. Migrations rodam no boot (seguro com 1 réplica + `strategy: Recreate`); ver `k8s/README.md` para escalar.
 
-O download de ROMs grandes (3DS, >1 GB) vai direto de `storage.lucascanno.com.br` (MinIO) para o cliente via presigned URL — **não** passa pelo caminho da API no Tunnel, então limites de tamanho de request da Cloudflare no lado da API não se aplicam. Checklist de aceitação manual pós-deploy em `k8s/README.md`.
+O download de ROMs grandes (3DS, >1 GB) vai direto de `rom-catalog-storage.lucascanno.com.br` (MinIO) para o cliente via presigned URL — **não** passa pelo caminho da API no Tunnel, então limites de tamanho de request da Cloudflare no lado da API não se aplicam. Checklist de aceitação manual pós-deploy em `k8s/README.md`.
 
 ## Roadmap
 

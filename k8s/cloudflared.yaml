@@ -4,8 +4,8 @@
 # Prereqs (done once, outside the cluster):
 #   cloudflared tunnel login
 #   cloudflared tunnel create rom-catalog
-#   cloudflared tunnel route dns rom-catalog api.lucascanno.com.br
-#   cloudflared tunnel route dns rom-catalog storage.lucascanno.com.br
+#   cloudflared tunnel route dns rom-catalog rom-catalog-api.lucascanno.com.br
+#   cloudflared tunnel route dns rom-catalog rom-catalog-storage.lucascanno.com.br
 #   kubectl -n rom-catalog create secret generic tunnel-credentials \
 #     --from-file=credentials.json=$HOME/.cloudflared/<TUNNEL_ID>.json
 # Then set TUNNEL_ID below and `kubectl apply -f k8s/cloudflared.yaml`.
@@ -21,10 +21,10 @@ data:
     metrics: 0.0.0.0:2000
     no-autoupdate: true
     ingress:
-      - hostname: api.lucascanno.com.br
+      - hostname: rom-catalog-api.lucascanno.com.br
         service: http://rom-catalog-api.rom-catalog.svc.cluster.local:80
-      - hostname: storage.lucascanno.com.br
-        service: http://minio.storage.svc.cluster.local:9000
+      - hostname: rom-catalog-storage.lucascanno.com.br
+        service: http://minio.rom-catalog.svc.cluster.local:9000
       - service: http_status:404
 ---
 apiVersion: apps/v1

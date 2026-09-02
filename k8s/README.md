@@ -131,7 +131,7 @@ kubectl -n rom-catalog create secret generic rom-catalog-api-secret \
 
 # 5. Cloudflare Tunnel credentials (see header of cloudflared.yaml), then set the
 #    tunnel id in cloudflared-config. Or, to reuse an existing homelab tunnel,
-#    add ingress rules for api./storage.lucascanno.com.br there and drop
+#    add ingress rules for rom-catalog-api. / rom-catalog-storage.lucascanno.com.br there and drop
 #    cloudflared.yaml from kustomization.yaml.
 
 # 6. Apply the app
@@ -195,7 +195,7 @@ From outside the home network (phone or another machine):
 
 ```bash
 TOKEN="<paste an admin token: ./gradlew -q issueToken --args='--scope admin'>"
-API=https://api.lucascanno.com.br
+API=https://rom-catalog-api.lucascanno.com.br
 
 curl -s $API/health                                   # 200 {"status":"UP"}
 curl -s $API/health/ready | jq                        # 200, db + storage UP
@@ -210,6 +210,6 @@ curl -L -o rom.bin "$URL"                             # streams MinIO -> client,
 sha256sum rom.bin                                     # must equal the "hash" field
 ```
 
-The download goes straight from `storage.lucascanno.com.br` (MinIO via its own
+The download goes straight from `rom-catalog-storage.lucascanno.com.br` (MinIO via its own
 Tunnel hostname) to the client, so Cloudflare request-size limits on the API path
 do not apply.
