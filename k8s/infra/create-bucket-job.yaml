@@ -1,11 +1,17 @@
-# One-shot: create the `roms` bucket. NO ttlSecondsAfterFinished on purpose — if
-# the completed Job self-deletes, Fleet sees drift and keeps recreating it, which
-# shows up as "object has been modified" churn on the bundle.
+# Creates the `roms` bucket. Run as a HELM HOOK, not a tracked resource: Fleet
+# renders bundles through Helm, so `helm.sh/hook` makes this Job run once per
+# sync (mc mb is idempotent) and then get deleted — Helm/Fleet never tracks it
+# for drift, which is what caused the endless "object has been modified" conflict
+# on the bundle (a Job's spec is immutable, so re-applying it always fails).
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: minio-create-bucket
   namespace: rom-catalog
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
 spec:
   backoffLimit: 20
   template:
