@@ -1,0 +1,9 @@
+# Keep shell scripts LF so they run on Linux CI regardless of the checkout OS.
+*.sh    text eol=lf
+gradlew text eol=lf
+
+*.bat   text eol=crlf
+
+# Treat these as binary (no EOL munging, no diff noise).
+gradle/wrapper/gradle-wrapper.jar binary
+*.jar   binary
