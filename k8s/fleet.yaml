@@ -1,0 +1,18 @@
+# Fleet bundle: the ROM Catalog API itself.
+# `defaultNamespace` (not `namespace:`) so the bundled Namespace object in
+# kustomization.yaml is allowed. kustomize runs automatically.
+defaultNamespace: rom-catalog
+
+kustomize:
+  dir: .
+
+# Secrets NOT in git — create before/independently of Fleet:
+#   - rom-catalog-api-secret   (JWT_SECRET, DB_URL, DB_*, MINIO_*)  — required
+#   - ghcr-pull                (docker-registry)                    — only if the image is private
+#   - tunnel-credentials       (cloudflared)                        — only if using k8s/cloudflared.yaml
+#
+# If you reuse an existing homelab tunnel, drop cloudflared.yaml from
+# kustomization.yaml before syncing.
+#
+# Postgres/MinIO must be up first (k8s/infra bundle). The API pod may CrashLoop
+# briefly until they answer, then recovers on its own.

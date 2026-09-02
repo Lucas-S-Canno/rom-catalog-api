@@ -11,7 +11,34 @@ Manifests here are plain YAML + a `kustomization.yaml`. Namespace: `rom-catalog`
 | `service.yaml` | ClusterIP `:80` → pod `:8080` |
 | `cloudflared.yaml` | Cloudflare Tunnel (API + MinIO public endpoint), no inbound ports |
 | `kustomization.yaml` | ties it together (`kubectl apply -k k8s/`) |
-| `infra/` | **optional** in-cluster Postgres + MinIO + a bucket-creation Job |
+| `fleet.yaml` | makes this dir a Fleet bundle (GitOps via Rancher) |
+| `infra/` | **optional** in-cluster Postgres + MinIO + a bucket-creation Job (its own `fleet.yaml`) |
+
+## Deploy with Fleet (Rancher GitOps)
+
+Rancher → **Continuous Delivery → Git Repos → Add**:
+
+| Field | Value |
+|---|---|
+| Repository URL | `https://github.com/Lucas-S-Canno/rom-catalog-api.git` |
+| Branch | `main` |
+| Paths | `k8s/infra` and `k8s` (two entries) |
+| Target | your cluster |
+
+Fleet finds the `fleet.yaml` in each path, runs kustomize, and syncs. **Create the
+secrets first** (they are not in git) — Rancher → *Storage → Secrets*, or:
+
+```bash
+kubectl -n rom-catalog create secret generic rom-catalog-data-secret \
+  --from-literal=POSTGRES_PASSWORD=... --from-literal=MINIO_ROOT_USER=romcatalog \
+  --from-literal=MINIO_ROOT_PASSWORD=...
+kubectl -n rom-catalog create secret generic rom-catalog-api-secret \
+  --from-literal=JWT_SECRET=... --from-literal=DB_URL=jdbc:postgresql://postgres:5432/romcatalog \
+  --from-literal=DB_USER=romcatalog --from-literal=DB_PASSWORD=<same as POSTGRES_PASSWORD> \
+  --from-literal=MINIO_ACCESS_KEY=romcatalog --from-literal=MINIO_SECRET_KEY=<same as MINIO_ROOT_PASSWORD>
+```
+
+The rest below (kubeconfig, `kubectl apply -k`) is the non-Fleet alternative.
 
 ## Prerequisites — Postgres + MinIO
 

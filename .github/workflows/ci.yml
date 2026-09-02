@@ -60,7 +60,8 @@ jobs:
 
       - name: Validate against the Kubernetes schemas
         run: |
-          kubeconform -strict -summary -ignore-missing-schemas k8s/
+          kubeconform -strict -summary -ignore-missing-schemas \
+            -ignore-filename-pattern 'fleet\.yaml$' -ignore-filename-pattern 'kustomization\.yaml$' k8s/
           kubeconform -strict -summary -ignore-missing-schemas /tmp/app.yaml /tmp/infra.yaml
 
   image:

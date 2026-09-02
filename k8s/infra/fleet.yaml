@@ -1,0 +1,10 @@
+# Fleet bundle: in-cluster Postgres + MinIO.
+# `namespace:` makes Fleet create and enforce the rom-catalog namespace
+# (this dir has no Namespace object of its own).
+namespace: rom-catalog
+
+kustomize:
+  dir: .
+
+# The `rom-catalog-data-secret` (Postgres/MinIO creds) is NOT in git — create it
+# manually before syncing, or the pods sit in CreateContainerConfigError.
