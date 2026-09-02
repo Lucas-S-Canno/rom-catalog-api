@@ -8,7 +8,7 @@ resources:
   - configmap.yaml
   - service.yaml
   - deployment.yaml
-  - cloudflared.yaml
+#  - cloudflared.yaml
   # secret.example.yaml is a template — apply the real Secret separately
   # (see k8s/README.md). It is intentionally not listed here.
 
