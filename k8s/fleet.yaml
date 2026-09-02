@@ -1,6 +1,7 @@
 # Fleet bundle: the ROM Catalog API itself.
-# `defaultNamespace` (not `namespace:`) so the bundled Namespace object in
-# kustomization.yaml is allowed. kustomize runs automatically.
+# `defaultNamespace` (not `namespace:`): Fleet/Helm cannot adopt a pre-existing
+# namespace, so this bundle does NOT own/create it — the k8s/infra bundle (or a
+# manual `kubectl create namespace rom-catalog`) does. kustomize runs automatically.
 defaultNamespace: rom-catalog
 
 kustomize:

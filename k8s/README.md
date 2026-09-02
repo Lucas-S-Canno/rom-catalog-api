@@ -4,7 +4,7 @@ Manifests here are plain YAML + a `kustomization.yaml`. Namespace: `rom-catalog`
 
 | File | What |
 |---|---|
-| `namespace.yaml` | the `rom-catalog` namespace |
+| `namespace.yaml` | the `rom-catalog` namespace (standalone — NOT in kustomization; Fleet/Helm can't adopt an existing ns) |
 | `configmap.yaml` | non-secret config (endpoints, issuer, timeouts, `APP_ENV=production`) |
 | `secret.example.yaml` | **template** for the Secret — never commit real values |
 | `deployment.yaml` | 1 replica, non-root, probes on `/health` + `/health/ready`, resource limits |
