@@ -76,7 +76,10 @@ data class AppConfig(
                 download = DownloadConfig(
                     urlTtlSeconds = value("DOWNLOAD_URL_TTL_SECONDS", "900").toLong(),
                 ),
-                cors = CorsConfig.parse(value("CORS_ALLOWED_ORIGINS", "http://localhost:4200")),
+                // Unset → no CORS at all. The mobile app is native (no CORS) and the
+                // admin panel is served same-origin behind nginx, so CORS only matters
+                // when you point a browser dev server straight at this API — set it then.
+                cors = CorsConfig.parse(value("CORS_ALLOWED_ORIGINS", "")),
                 auth = AuthConfig(
                     jwtSecret = value("JWT_SECRET", AuthConfig.DEV_INSECURE_SECRET),
                     jwtIssuer = value("JWT_ISSUER", "rom-catalog-api"),
@@ -122,10 +125,14 @@ data class DownloadConfig(
 
 /**
  * Browser CORS policy for the admin panel. The mobile app talks to the API from
- * native code and needs none of this. Set `CORS_ALLOWED_ORIGINS` to a comma-separated
+ * native code and needs none of this. `CORS_ALLOWED_ORIGINS` is a comma-separated
  * list of exact origins (`https://rom-catalog-admin.example.com`), or `*` to allow any
- * (dev only — [AppConfig.requireProductionReady] rejects `*` and localhost in production).
- * An empty list installs no CORS handling at all.
+ * (dev only — [AppConfig.requireProductionReady] rejects `*` and an explicit localhost
+ * origin in production). Unset / empty → no CORS handling is installed.
+ *
+ * The no-arg default keeps `http://localhost:4200` only so test fixtures
+ * (`AppDependencies.of`) exercise the CORS plugin; real startup resolves this from
+ * the environment via [AppConfig.fromEnv], which defaults to empty.
  */
 data class CorsConfig(
     val allowedOrigins: List<String> = listOf("http://localhost:4200"),

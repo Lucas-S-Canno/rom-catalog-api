@@ -28,7 +28,7 @@ Claims do token: `iss=rom-catalog-api`, `aud=rom-catalog-app`, `sub` (id do usu�
 
 ### CORS
 
-Só importa para clientes de navegador (o painel de admin em Angular). Controlado por `CORS_ALLOWED_ORIGINS` (lista separada por vírgula de origens exatas, ex.: `https://rom-catalog-admin.lucascanno.com.br`; `*` libera qualquer origem — apenas dev, recusado em `APP_ENV=production`; vazio desliga o CORS). Métodos liberados: `GET, POST, PATCH, DELETE, OPTIONS`; headers: `Authorization`, `Content-Type`. O app Android é nativo e não passa por CORS.
+Só importa para clientes de navegador (o painel de admin em Angular). Controlado por `CORS_ALLOWED_ORIGINS` (lista separada por vírgula de origens exatas, ex.: `https://rom-catalog-admin.lucascanno.com.br`; `*` libera qualquer origem — apenas dev, recusado em `APP_ENV=production`). **Não definido / vazio → nenhum CORS é instalado** — é o caso normal: o painel é servido na mesma origem (o nginx dele faz proxy de `/api`) e o app Android é nativo. Quando ativo: métodos `GET, POST, PATCH, DELETE, OPTIONS`; headers `Authorization`, `Content-Type`.
 
 ---
 
