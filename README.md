@@ -59,6 +59,8 @@ App Android → Ktor API (auth, catálogo, favoritos, presigned URLs) → MinIO 
 | DELETE | `/favorites/{romId}` | Remove dos favoritos; idempotente (204) | ✅ |
 | GET | `/admin/ping` | (admin) Placeholder que confirma escopo admin | ✅ |
 | POST | `/admin/roms` | (admin) Ingestão: `multipart/form-data` (upload) ou `application/json` (objeto já no bucket); dedup por hash → `409` | ✅ |
+| PATCH | `/admin/roms/{id}` | (admin) Edita metadata mutável (`name`, `coverUrl`); `404` se não existir | ✅ |
+| DELETE | `/admin/roms/{id}` | (admin) Remove registro + objeto no bucket (favoritos em cascata); `404` / `503` | ✅ |
 
 > Todas as respostas de erro usam o envelope `{ "error": { "code", "message" } }`.
 > **Autenticação:** todas as rotas exigem `Authorization: Bearer <JWT>` exceto `/health`.
@@ -133,6 +135,7 @@ JWT_AUDIENCE=rom-catalog-app
 JWT_REALM=rom-catalog
 DB_CONNECTION_TIMEOUT_MS=10000
 STORAGE_TIMEOUT_MS=10000
+CORS_ALLOWED_ORIGINS=http://localhost:4200   # origens do painel admin (CSV); '*' só em dev; vazio desliga
 ```
 
 Sem `.env`, os defaults acima já valem (batem com o `docker-compose.yml`).
@@ -180,7 +183,7 @@ Contrato completo dos endpoints de auth/contas em [`docs/API.md`](docs/API.md).
 | Login errado | `401 INVALID_CREDENTIALS` |
 | Token `user` numa rota `/admin/…` | `403 FORBIDDEN` |
 
-**Config** (Secret): `JWT_SECRET` (obrigatório), `ADMIN_USERNAME`, `ADMIN_BOOTSTRAP_PASSWORD`. **ConfigMap:** `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_REALM`, `JWT_TTL_HOURS`, `BCRYPT_COST`.
+**Config** (Secret): `JWT_SECRET` (obrigatório), `ADMIN_USERNAME`, `ADMIN_BOOTSTRAP_PASSWORD`. **ConfigMap:** `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_REALM`, `JWT_TTL_HOURS`, `BCRYPT_COST`, `CORS_ALLOWED_ORIGINS`.
 
 ## Ingestão
 

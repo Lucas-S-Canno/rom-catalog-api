@@ -91,8 +91,36 @@ class AppConfigTest {
             "MINIO_PUBLIC_ENDPOINT" to "https://storage.lucascanno.com.br",
             "MINIO_ACCESS_KEY" to "prod-access-key",
             "MINIO_SECRET_KEY" to "prod-secret-key",
+            "CORS_ALLOWED_ORIGINS" to "https://rom-catalog-admin.lucascanno.com.br",
         )
 
         AppConfig.fromEnv { env[it] }.requireProductionReady() // must not throw
+    }
+
+    @Test
+    fun `requireProductionReady rejects a wildcard CORS origin`() {
+        val env = mapOf(
+            "APP_ENV" to "production",
+            "JWT_SECRET" to "a-real-long-random-secret-value",
+            "DB_URL" to "jdbc:postgresql://postgres.prod:5432/romcatalog",
+            "DB_PASSWORD" to "a-real-db-password",
+            "MINIO_ENDPOINT" to "http://minio.prod:9000",
+            "MINIO_PUBLIC_ENDPOINT" to "https://storage.lucascanno.com.br",
+            "MINIO_ACCESS_KEY" to "prod-access-key",
+            "MINIO_SECRET_KEY" to "prod-secret-key",
+            "CORS_ALLOWED_ORIGINS" to "*",
+        )
+
+        val ex = assertFailsWith<ConfigurationException> { AppConfig.fromEnv { env[it] }.requireProductionReady() }
+        assertTrue(ex.message!!.contains("CORS_ALLOWED_ORIGINS"))
+    }
+
+    @Test
+    fun `CORS_ALLOWED_ORIGINS parses a comma-separated list`() {
+        val config = AppConfig.fromEnv {
+            if (it == "CORS_ALLOWED_ORIGINS") "https://a.example, https://b.example" else null
+        }
+        assertEquals(listOf("https://a.example", "https://b.example"), config.cors.allowedOrigins)
+        assertEquals(false, config.cors.anyHost)
     }
 }

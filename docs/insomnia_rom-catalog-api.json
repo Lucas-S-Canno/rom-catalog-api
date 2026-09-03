@@ -288,6 +288,33 @@
       },
       "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
       "metaSortKey": -80
+    },
+    {
+      "_id": "req_admin_rom_patch",
+      "_type": "request",
+      "parentId": "fld_admin",
+      "name": "PATCH /admin/roms/{id} (edita name/coverUrl)",
+      "description": "name ausente = inalterado; coverUrl \"\" limpa a capa.",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/admin/roms/{{ _.rom_id }}",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Novo nome\",\n  \"coverUrl\": \"\"\n}"
+      },
+      "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
+      "metaSortKey": -70
+    },
+    {
+      "_id": "req_admin_rom_delete",
+      "_type": "request",
+      "parentId": "fld_admin",
+      "name": "DELETE /admin/roms/{id} (remove registro + objeto)",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/admin/roms/{{ _.rom_id }}",
+      "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
+      "metaSortKey": -60
     }
   ]
 }

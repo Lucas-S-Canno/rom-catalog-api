@@ -8,6 +8,7 @@ import io.minio.GetPresignedObjectUrlArgs
 import io.minio.MakeBucketArgs
 import io.minio.MinioClient
 import io.minio.PutObjectArgs
+import io.minio.RemoveObjectArgs
 import io.minio.StatObjectArgs
 import io.minio.errors.ErrorResponseException
 import io.minio.http.Method
@@ -27,6 +28,12 @@ interface StorageClient {
     fun presignedGetUrl(key: String, ttl: Duration): String
 
     fun putObject(key: String, data: InputStream, size: Long, contentType: String)
+
+    /**
+     * Removes the object. Absent object → no-op (idempotent). Throws
+     * [StorageUnavailableException] if the store is unreachable.
+     */
+    fun removeObject(key: String)
 
     /** Opens the object for reading. Caller must close the stream. Throws [StorageUnavailableException] on any failure. */
     fun openObject(key: String): InputStream
@@ -97,6 +104,19 @@ class MinioStorageClient(
             )
         } catch (e: Exception) {
             throw StorageUnavailableException("Could not upload object '$key'", e)
+        }
+    }
+
+    override fun removeObject(key: String) {
+        try {
+            controlClient.removeObject(RemoveObjectArgs.builder().bucket(bucket).`object`(key).build())
+        } catch (e: ErrorResponseException) {
+            val code = e.errorResponse()?.code()
+            if (code != "NoSuchKey" && code != "NoSuchObject" && code != "ResourceNotFound") {
+                throw StorageUnavailableException("removeObject failed for '$key': $code", e)
+            }
+        } catch (e: Exception) {
+            throw StorageUnavailableException("Could not remove object '$key'", e)
         }
     }
 
