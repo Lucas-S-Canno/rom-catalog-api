@@ -18,6 +18,10 @@ class AppConfigTest {
         assertEquals("http://localhost:9000", config.storage.endpoint)
         assertEquals("roms", config.storage.bucket)
         assertEquals(900, config.download.urlTtlSeconds)
+        // CORS is off unless CORS_ALLOWED_ORIGINS is set — a localhost default here
+        // would make requireProductionReady() reject an otherwise-fine prod config.
+        assertEquals(emptyList(), config.cors.allowedOrigins)
+        assertEquals(false, config.cors.anyHost)
     }
 
     @Test
@@ -80,37 +84,39 @@ class AppConfigTest {
         assertTrue(ex.message!!.contains("MINIO_PUBLIC_ENDPOINT"))
     }
 
-    @Test
-    fun `requireProductionReady passes when every value is real`() {
-        val env = mapOf(
-            "APP_ENV" to "production",
-            "JWT_SECRET" to "a-real-long-random-secret-value",
-            "DB_URL" to "jdbc:postgresql://postgres.prod:5432/romcatalog",
-            "DB_PASSWORD" to "a-real-db-password",
-            "MINIO_ENDPOINT" to "http://minio.prod:9000",
-            "MINIO_PUBLIC_ENDPOINT" to "https://storage.lucascanno.com.br",
-            "MINIO_ACCESS_KEY" to "prod-access-key",
-            "MINIO_SECRET_KEY" to "prod-secret-key",
-            "CORS_ALLOWED_ORIGINS" to "https://rom-catalog-admin.lucascanno.com.br",
-        )
+    private val realProdEnv = mapOf(
+        "APP_ENV" to "production",
+        "JWT_SECRET" to "a-real-long-random-secret-value",
+        "DB_URL" to "jdbc:postgresql://postgres.prod:5432/romcatalog",
+        "DB_PASSWORD" to "a-real-db-password",
+        "MINIO_ENDPOINT" to "http://minio.prod:9000",
+        "MINIO_PUBLIC_ENDPOINT" to "https://storage.lucascanno.com.br",
+        "MINIO_ACCESS_KEY" to "prod-access-key",
+        "MINIO_SECRET_KEY" to "prod-secret-key",
+    )
 
+    @Test
+    fun `requireProductionReady passes with real values and CORS unset`() {
+        // Regression: an unset CORS_ALLOWED_ORIGINS must NOT block a prod boot.
+        AppConfig.fromEnv { realProdEnv[it] }.requireProductionReady() // must not throw
+    }
+
+    @Test
+    fun `requireProductionReady passes with an explicit non-local CORS origin`() {
+        val env = realProdEnv + ("CORS_ALLOWED_ORIGINS" to "https://rom-catalog-admin.lucascanno.com.br")
         AppConfig.fromEnv { env[it] }.requireProductionReady() // must not throw
     }
 
     @Test
-    fun `requireProductionReady rejects a wildcard CORS origin`() {
-        val env = mapOf(
-            "APP_ENV" to "production",
-            "JWT_SECRET" to "a-real-long-random-secret-value",
-            "DB_URL" to "jdbc:postgresql://postgres.prod:5432/romcatalog",
-            "DB_PASSWORD" to "a-real-db-password",
-            "MINIO_ENDPOINT" to "http://minio.prod:9000",
-            "MINIO_PUBLIC_ENDPOINT" to "https://storage.lucascanno.com.br",
-            "MINIO_ACCESS_KEY" to "prod-access-key",
-            "MINIO_SECRET_KEY" to "prod-secret-key",
-            "CORS_ALLOWED_ORIGINS" to "*",
-        )
+    fun `requireProductionReady rejects an explicit localhost CORS origin`() {
+        val env = realProdEnv + ("CORS_ALLOWED_ORIGINS" to "http://localhost:4200")
+        val ex = assertFailsWith<ConfigurationException> { AppConfig.fromEnv { env[it] }.requireProductionReady() }
+        assertTrue(ex.message!!.contains("CORS_ALLOWED_ORIGINS"))
+    }
 
+    @Test
+    fun `requireProductionReady rejects a wildcard CORS origin`() {
+        val env = realProdEnv + ("CORS_ALLOWED_ORIGINS" to "*")
         val ex = assertFailsWith<ConfigurationException> { AppConfig.fromEnv { env[it] }.requireProductionReady() }
         assertTrue(ex.message!!.contains("CORS_ALLOWED_ORIGINS"))
     }

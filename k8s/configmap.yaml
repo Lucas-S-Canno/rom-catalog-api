@@ -30,3 +30,9 @@ data:
   DOWNLOAD_URL_TTL_SECONDS: "900"
   DB_CONNECTION_TIMEOUT_MS: "10000"
   STORAGE_TIMEOUT_MS: "10000"
+
+  # Browser CORS. Empty = no CORS installed, which is correct here: the mobile app
+  # is native and the admin panel is served same-origin behind its own nginx
+  # (rom-catalog-admin proxies /api to this service). Set to the exact panel
+  # origin(s) only if a browser ever calls this API cross-origin.
+  CORS_ALLOWED_ORIGINS: ""

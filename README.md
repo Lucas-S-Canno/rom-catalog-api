@@ -135,7 +135,7 @@ JWT_AUDIENCE=rom-catalog-app
 JWT_REALM=rom-catalog
 DB_CONNECTION_TIMEOUT_MS=10000
 STORAGE_TIMEOUT_MS=10000
-CORS_ALLOWED_ORIGINS=http://localhost:4200   # origens do painel admin (CSV); '*' só em dev; vazio desliga
+CORS_ALLOWED_ORIGINS=                         # vazio/ausente = sem CORS (padrão). CSV de origens, ou '*' (só dev)
 ```
 
 Sem `.env`, os defaults acima já valem (batem com o `docker-compose.yml`).
