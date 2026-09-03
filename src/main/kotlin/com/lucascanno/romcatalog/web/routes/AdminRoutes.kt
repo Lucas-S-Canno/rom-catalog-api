@@ -4,12 +4,14 @@ import com.lucascanno.romcatalog.domain.GameSystem
 import com.lucascanno.romcatalog.error.ApiException
 import com.lucascanno.romcatalog.ingest.SystemDetector
 import com.lucascanno.romcatalog.service.IngestionService
+import com.lucascanno.romcatalog.service.RomService
 import com.lucascanno.romcatalog.service.UserService
 import com.lucascanno.romcatalog.web.callerUserId
 import com.lucascanno.romcatalog.web.dto.AdminPingResponse
 import com.lucascanno.romcatalog.web.dto.CreateUserRequest
 import com.lucascanno.romcatalog.web.dto.RegisterRomRequest
 import com.lucascanno.romcatalog.web.dto.ResetPasswordRequest
+import com.lucascanno.romcatalog.web.dto.UpdateRomRequest
 import com.lucascanno.romcatalog.web.dto.toDto
 import com.lucascanno.romcatalog.web.requireAdminScope
 import com.lucascanno.romcatalog.web.uuidPathParam
@@ -25,6 +27,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
+import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import io.ktor.utils.io.jvm.javaio.toInputStream
@@ -36,7 +39,7 @@ import java.io.File
  * Admin surface. Mounted inside `authenticate(AUTH_JWT) { ... }`; every handler
  * also calls [requireAdminScope] so a valid `user` token gets 403.
  */
-fun Route.adminRoutes(ingestionService: IngestionService, userService: UserService) {
+fun Route.adminRoutes(ingestionService: IngestionService, userService: UserService, romService: RomService) {
     route("/admin") {
         get("/ping") {
             call.requireAdminScope()
@@ -85,6 +88,18 @@ fun Route.adminRoutes(ingestionService: IngestionService, userService: UserServi
                 is IngestionService.Outcome.Duplicate -> call.respond(HttpStatusCode.Conflict, outcome.existing.toDto())
                 is IngestionService.Outcome.Planned -> error("dry-run outcome from a non-dry-run request")
             }
+        }
+
+        patch("/roms/{id}") {
+            call.requireAdminScope()
+            val body = call.receive<UpdateRomRequest>()
+            call.respond(romService.update(call.uuidPathParam("id"), body))
+        }
+
+        delete("/roms/{id}") {
+            call.requireAdminScope()
+            romService.delete(call.uuidPathParam("id"))
+            call.respond(HttpStatusCode.NoContent)
         }
     }
 }

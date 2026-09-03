@@ -9,9 +9,12 @@ import com.lucascanno.romcatalog.domain.Rom
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SortOrder
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.andWhere
+import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insertAndGetId
 import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.update
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -47,6 +50,28 @@ class RomRepository(private val database: Database) {
             .where { RomsTable.id eq id }
             .singleOrNull()
             ?.toRom()
+    }
+
+    /** @return true when a row was actually removed. Favorites cascade away (FK `ON DELETE CASCADE`). */
+    suspend fun delete(id: UUID): Boolean = dbQuery {
+        RomsTable.deleteWhere { RomsTable.id eq id } > 0
+    }
+
+    /**
+     * Patches the mutable metadata of a ROM. `name`/`coverUrl` are applied only when non-null;
+     * `clearCover` wins over `coverUrl` and sets the column to NULL.
+     * @return the updated [Rom], or null when the id does not exist.
+     */
+    suspend fun update(id: UUID, name: String?, coverUrl: String?, clearCover: Boolean): Rom? = dbQuery {
+        val changed = RomsTable.update({ RomsTable.id eq id }) {
+            if (name != null) it[RomsTable.name] = name
+            when {
+                clearCover -> it[RomsTable.coverUrl] = null
+                coverUrl != null -> it[RomsTable.coverUrl] = coverUrl
+            }
+        }
+        if (changed == 0) null
+        else RomsTable.selectAll().where { RomsTable.id eq id }.singleOrNull()?.toRom()
     }
 
     suspend fun findAll(system: GameSystem?, page: Int, size: Int): PageResult<Rom> = dbQuery {

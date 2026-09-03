@@ -5,6 +5,7 @@ import com.lucascanno.romcatalog.auth.JwtService
 import com.lucascanno.romcatalog.auth.PasswordHasher
 import com.lucascanno.romcatalog.config.AppConfig
 import com.lucascanno.romcatalog.config.AuthConfig
+import com.lucascanno.romcatalog.config.CorsConfig
 import com.lucascanno.romcatalog.config.DownloadConfig
 import com.lucascanno.romcatalog.db.DatabaseFactory
 import com.lucascanno.romcatalog.repository.FavoriteRepository
@@ -21,6 +22,7 @@ import com.lucascanno.romcatalog.storage.MinioStorageClient
 import com.lucascanno.romcatalog.storage.StorageClient
 import com.lucascanno.romcatalog.web.AUTH_JWT
 import com.lucascanno.romcatalog.web.configureAuthentication
+import com.lucascanno.romcatalog.web.configureCors
 import com.lucascanno.romcatalog.web.configureMonitoring
 import com.lucascanno.romcatalog.web.configureSerialization
 import com.lucascanno.romcatalog.web.configureStatusPages
@@ -55,7 +57,7 @@ fun Application.module(config: AppConfig = AppConfig.fromEnv()) {
     val storage = MinioStorageClient.create(config.storage)
     storage.ensureBucket()
 
-    val deps = AppDependencies.of(db.database, storage, config.download, config.auth)
+    val deps = AppDependencies.of(db.database, storage, config.download, config.auth, corsConfig = config.cors)
 
     runBlocking {
         AdminBootstrap.run(UserRepository(db.database), PasswordHasher(config.auth.bcryptCost), config.auth)
@@ -71,6 +73,7 @@ fun Application.module(config: AppConfig = AppConfig.fromEnv()) {
 fun Application.configureApp(deps: AppDependencies) {
     configureSerialization()
     configureMonitoring()
+    configureCors(deps.corsConfig)
     configureStatusPages()
     configureAuthentication(deps.authConfig)
     routing {
@@ -81,7 +84,7 @@ fun Application.configureApp(deps: AppDependencies) {
             authSelfRoutes(deps.authService) // GET /auth/me, POST /auth/change-credentials
             romRoutes(deps.romService, deps.downloadService)
             favoriteRoutes(deps.favoriteService)
-            adminRoutes(deps.ingestionService, deps.userService) // + per-handler admin-scope check
+            adminRoutes(deps.ingestionService, deps.userService, deps.romService) // + per-handler admin-scope check
         }
     }
 }
@@ -95,6 +98,7 @@ data class AppDependencies(
     val authService: AuthService,
     val userService: UserService,
     val authConfig: AuthConfig,
+    val corsConfig: CorsConfig,
 ) {
     companion object {
         /** Convenience for tests: build the whole stack from a DB handle + storage. */
@@ -103,6 +107,7 @@ data class AppDependencies(
             storage: StorageClient,
             downloadConfig: DownloadConfig = DownloadConfig(),
             authConfig: AuthConfig = AuthConfig(),
+            corsConfig: CorsConfig = CorsConfig(),
             healthService: HealthService = HealthService.forInfra(database, storage),
         ): AppDependencies {
             val romRepository = RomRepository(database)
@@ -111,7 +116,7 @@ data class AppDependencies(
             val hasher = PasswordHasher(authConfig.bcryptCost)
             val jwtService = JwtService(authConfig)
             return AppDependencies(
-                romService = RomService(romRepository),
+                romService = RomService(romRepository, storage),
                 downloadService = DownloadService(romRepository, storage, downloadConfig),
                 favoriteService = FavoriteService(favoriteRepository, romRepository),
                 ingestionService = IngestionService(romRepository, storage),
@@ -119,6 +124,7 @@ data class AppDependencies(
                 authService = AuthService(userRepository, hasher, jwtService, authConfig),
                 userService = UserService(userRepository, hasher),
                 authConfig = authConfig,
+                corsConfig = corsConfig,
             )
         }
     }

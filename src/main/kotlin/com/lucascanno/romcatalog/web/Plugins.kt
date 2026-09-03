@@ -1,9 +1,11 @@
 package com.lucascanno.romcatalog.web
 
+import com.lucascanno.romcatalog.config.CorsConfig
 import com.lucascanno.romcatalog.error.ApiException
 import com.lucascanno.romcatalog.error.StorageUnavailableException
 import com.lucascanno.romcatalog.web.dto.ErrorResponse
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -14,6 +16,7 @@ import io.ktor.server.plugins.callid.CallId
 import io.ktor.server.plugins.callid.callIdMdc
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.defaultheaders.DefaultHeaders
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.path
@@ -46,6 +49,33 @@ fun Application.configureMonitoring() {
         level = Level.INFO
         callIdMdc("requestId")
         filter { call -> !call.request.path().startsWith("/health") }
+    }
+}
+
+/**
+ * Browser CORS for the admin panel. No-op when [CorsConfig.allowedOrigins] is empty
+ * and [CorsConfig.anyHost] is false — the mobile app never needs CORS.
+ */
+fun Application.configureCors(config: CorsConfig) {
+    if (!config.anyHost && config.allowedOrigins.isEmpty()) return
+    install(CORS) {
+        if (config.anyHost) {
+            anyHost()
+        } else {
+            config.allowedOrigins.forEach { origin ->
+                val scheme = origin.substringBefore("://", missingDelimiterValue = "https")
+                val host = origin.substringAfter("://")
+                allowHost(host, schemes = listOf(scheme))
+            }
+        }
+        allowHeader(HttpHeaders.Authorization)
+        allowHeader(HttpHeaders.ContentType)
+        allowMethod(HttpMethod.Options)
+        allowMethod(HttpMethod.Get)
+        allowMethod(HttpMethod.Post)
+        allowMethod(HttpMethod.Patch)
+        allowMethod(HttpMethod.Delete)
+        allowNonSimpleContentTypes = true
     }
 }
 

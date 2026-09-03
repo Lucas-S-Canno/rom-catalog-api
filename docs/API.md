@@ -26,6 +26,10 @@ Claims do token: `iss=rom-catalog-api`, `aud=rom-catalog-app`, `sub` (id do usu�
 
 **No app:** guarde o token em armazenamento seguro (EncryptedSharedPreferences / DataStore); no launch, se não expirou, pula o login. Em `401`, volta pra tela de login. Sem refresh token — expirou, loga de novo (~1x por semana).
 
+### CORS
+
+Só importa para clientes de navegador (o painel de admin em Angular). Controlado por `CORS_ALLOWED_ORIGINS` (lista separada por vírgula de origens exatas, ex.: `https://rom-catalog-admin.lucascanno.com.br`; `*` libera qualquer origem — apenas dev, recusado em `APP_ENV=production`; vazio desliga o CORS). Métodos liberados: `GET, POST, PATCH, DELETE, OPTIONS`; headers: `Authorization`, `Content-Type`. O app Android é nativo e não passa por CORS.
+
 ---
 
 ## Endpoints — Contas
@@ -325,6 +329,36 @@ Respostas (ambos os modos):
 ```
 
 > Na prática a ingestão é feita pela LAN (script `./gradlew ingest` ou upload direto) — o app provavelmente **não** precisa disso. Documentado por completude.
+
+#### `PATCH /admin/roms/{id}` — edita metadata · auth `admin`
+
+Altera só os campos mutáveis. `system`, `hash`, `sizeBytes` e `storageKey` são derivados do conteúdo e **não** podem ser alterados por aqui.
+
+```json
+{ "name": "Pokemon Emerald (PT-BR)", "coverUrl": "https://.../capa.png" }
+```
+
+- `name` ausente → inalterado; presente e não-vazio → novo nome.
+- `coverUrl` ausente → inalterado; `""` → remove a capa; não-vazio → nova URL.
+
+```
+200 → RomDto
+400 NOTHING_TO_CHANGE   (nenhum campo enviado)
+400 INVALID_BODY        (name vazio / JSON malformado)
+400 INVALID_PATH_PARAM  (id não é UUID)
+404 ROM_NOT_FOUND
+```
+
+#### `DELETE /admin/roms/{id}` — remove ROM · auth `admin`
+
+Remove o registro **e** o objeto no bucket. Favoritos que apontam para a ROM são removidos em cascata. O objeto é apagado primeiro: se o storage estiver indisponível, o registro é mantido e a resposta é `503`.
+
+```
+204
+400 INVALID_PATH_PARAM  (id não é UUID)
+404 ROM_NOT_FOUND
+503 STORAGE_UNAVAILABLE
+```
 
 ---
 

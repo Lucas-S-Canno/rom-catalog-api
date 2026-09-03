@@ -17,6 +17,7 @@ data class AppConfig(
     val storage: StorageConfig,
     val download: DownloadConfig = DownloadConfig(),
     val auth: AuthConfig = AuthConfig(),
+    val cors: CorsConfig = CorsConfig(),
 ) {
     val isProduction: Boolean get() = appEnv.equals("production", ignoreCase = true)
 
@@ -33,6 +34,10 @@ data class AppConfig(
             if (storage.secretKey == "minioadmin") add("MINIO_SECRET_KEY is the dev default 'minioadmin'")
             if ("localhost" in storage.publicEndpoint || "127.0.0.1" in storage.publicEndpoint) {
                 add("MINIO_PUBLIC_ENDPOINT points at localhost — the phone will not reach it")
+            }
+            if (cors.anyHost) add("CORS_ALLOWED_ORIGINS is '*' — set the admin panel's exact origin(s)")
+            if (cors.allowedOrigins.any { "localhost" in it || "127.0.0.1" in it }) {
+                add("CORS_ALLOWED_ORIGINS still contains a localhost origin")
             }
         }
         if (problems.isNotEmpty()) {
@@ -71,6 +76,7 @@ data class AppConfig(
                 download = DownloadConfig(
                     urlTtlSeconds = value("DOWNLOAD_URL_TTL_SECONDS", "900").toLong(),
                 ),
+                cors = CorsConfig.parse(value("CORS_ALLOWED_ORIGINS", "http://localhost:4200")),
                 auth = AuthConfig(
                     jwtSecret = value("JWT_SECRET", AuthConfig.DEV_INSECURE_SECRET),
                     jwtIssuer = value("JWT_ISSUER", "rom-catalog-api"),
@@ -113,6 +119,27 @@ data class DownloadConfig(
     /** Lifetime of a presigned download URL (D-09). */
     val urlTtlSeconds: Long = 900,
 )
+
+/**
+ * Browser CORS policy for the admin panel. The mobile app talks to the API from
+ * native code and needs none of this. Set `CORS_ALLOWED_ORIGINS` to a comma-separated
+ * list of exact origins (`https://rom-catalog-admin.example.com`), or `*` to allow any
+ * (dev only — [AppConfig.requireProductionReady] rejects `*` and localhost in production).
+ * An empty list installs no CORS handling at all.
+ */
+data class CorsConfig(
+    val allowedOrigins: List<String> = listOf("http://localhost:4200"),
+    val anyHost: Boolean = false,
+) {
+    companion object {
+        fun parse(raw: String): CorsConfig {
+            val trimmed = raw.trim()
+            if (trimmed == "*") return CorsConfig(allowedOrigins = emptyList(), anyHost = true)
+            val origins = trimmed.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            return CorsConfig(allowedOrigins = origins, anyHost = false)
+        }
+    }
+}
 
 /**
  * Auth settings. `POST /auth/login` issues tokens with `JWT_TTL_HOURS` lifetime;

@@ -64,6 +64,17 @@ data class RegisterRomRequest(
     val coverUrl: String? = null,
 )
 
+/**
+ * JSON body for `PATCH /admin/roms/{id}`. Only the mutable metadata:
+ * - `name` omitted → unchanged; present → new name.
+ * - `coverUrl` omitted → unchanged; `""` → cover cleared; non-empty → new cover URL.
+ */
+@Serializable
+data class UpdateRomRequest(
+    val name: String? = null,
+    val coverUrl: String? = null,
+)
+
 @Serializable
 data class AddFavoriteRequest(val romId: String)
 

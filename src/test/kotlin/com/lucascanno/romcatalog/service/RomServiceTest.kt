@@ -5,6 +5,8 @@ import com.lucascanno.romcatalog.domain.PageResult
 import com.lucascanno.romcatalog.domain.Rom
 import com.lucascanno.romcatalog.error.ApiException
 import com.lucascanno.romcatalog.repository.RomRepository
+import com.lucascanno.romcatalog.storage.StorageClient
+import com.lucascanno.romcatalog.web.dto.UpdateRomRequest
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -19,7 +21,19 @@ import kotlin.test.assertNull
 class RomServiceTest {
 
     private val repo = mockk<RomRepository>()
-    private val service = RomService(repo)
+    private val storage = mockk<StorageClient>(relaxed = true)
+    private val service = RomService(repo, storage)
+
+    private fun sampleRom(id: UUID) = Rom(
+        id = id,
+        name = "Demo",
+        system = GameSystem.GBA,
+        sizeBytes = 123,
+        hash = "deadbeef",
+        storageKey = "GBA/deadbeef.bin",
+        coverUrl = null,
+        createdAt = Instant.parse("2026-01-01T00:00:00Z"),
+    )
 
     @Test
     fun `clamps oversized page size to the maximum`() = runBlocking {
@@ -80,6 +94,54 @@ class RomServiceTest {
         coEvery { repo.findById(id) } returns null
 
         val ex = assertFailsWith<ApiException> { service.getById(id) }
+        assertEquals("ROM_NOT_FOUND", ex.code)
+    }
+
+    @Test
+    fun `delete removes the object then the row`() = runBlocking {
+        val id = UUID.randomUUID()
+        coEvery { repo.findById(id) } returns sampleRom(id)
+        coEvery { repo.delete(id) } returns true
+
+        service.delete(id)
+
+        coVerify { storage.removeObject("GBA/deadbeef.bin") }
+        coVerify { repo.delete(id) }
+    }
+
+    @Test
+    fun `delete throws 404 when the rom is unknown`() = runBlocking {
+        val id = UUID.randomUUID()
+        coEvery { repo.findById(id) } returns null
+
+        val ex = assertFailsWith<ApiException> { service.delete(id) }
+        assertEquals("ROM_NOT_FOUND", ex.code)
+        coVerify(exactly = 0) { storage.removeObject(any()) }
+    }
+
+    @Test
+    fun `update with an empty body is NOTHING_TO_CHANGE`() = runBlocking {
+        val ex = assertFailsWith<ApiException> { service.update(UUID.randomUUID(), UpdateRomRequest()) }
+        assertEquals("NOTHING_TO_CHANGE", ex.code)
+    }
+
+    @Test
+    fun `update passes a blank coverUrl through as a clear`() = runBlocking {
+        val id = UUID.randomUUID()
+        coEvery { repo.update(id, "Novo", null, true) } returns sampleRom(id).copy(name = "Novo")
+
+        val dto = service.update(id, UpdateRomRequest(name = "Novo", coverUrl = ""))
+
+        assertEquals("Novo", dto.name)
+        coVerify { repo.update(id, "Novo", null, true) }
+    }
+
+    @Test
+    fun `update throws 404 when the rom is unknown`() = runBlocking {
+        val id = UUID.randomUUID()
+        coEvery { repo.update(id, "Novo", null, false) } returns null
+
+        val ex = assertFailsWith<ApiException> { service.update(id, UpdateRomRequest(name = "Novo")) }
         assertEquals("ROM_NOT_FOUND", ex.code)
     }
 }
