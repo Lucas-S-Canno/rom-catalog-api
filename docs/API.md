@@ -12,25 +12,94 @@ Todas as respostas são JSON (`Content-Type: application/json`), exceto o corpo 
 
 ## Autenticação
 
-JWT **HS256**, header `Authorization: Bearer <token>`.
+Contas com **login/senha**. `POST /auth/login` devolve um **JWT HS256** (TTL 7 dias); manda em `Authorization: Bearer <token>` em tudo, exceto `GET /health`, `GET /health/ready` e o próprio `POST /auth/login`.
 
-- **Todas as rotas exigem token, exceto `GET /health` e `GET /health/ready`.**
-- Rotas `/admin/*` exigem um token com escopo `admin`. Token de escopo `user` nessas rotas → `403`.
-- `admin` implica `user` (token admin funciona em qualquer rota).
+- Dois papéis: `admin` (você) e `user` (amigos). `admin` faz tudo que `user` faz.
+- Rotas `/admin/*` exigem papel `admin`. Token `user` nessas rotas → `403`.
+- Senhas são **BCrypt** no banco (nunca em claro).
 
-O token é emitido manualmente (não há login):
+**Fluxo de primeiro acesso:** o admin cria a conta com login+senha temporários (`POST /admin/users`). O usuário faz `POST /auth/login` e recebe `mustChangeCredentials: true` — o app deve forçar uma tela de "escolha seu usuário e senha" e chamar `POST /auth/change-credentials`, que devolve um token novo e zera a flag.
 
-```bash
-./gradlew -q issueToken --args="--scope user --ttl-days 3650"
-./gradlew -q issueToken --args="--scope admin"
-# ou, dentro do container:
-kubectl -n rom-catalog exec deploy/rom-catalog-api -- \
-  java -cp /app/app.jar com.lucascanno.romcatalog.auth.TokenIssuerCliKt --scope user
+Claims do token: `iss=rom-catalog-api`, `aud=rom-catalog-app`, `sub` (id do usuário), `username`, `role`/`scope` (`user`|`admin`), `iat`, `exp`.
+
+**Break-glass:** a task `./gradlew -q issueToken --args="--scope admin --ttl-days 365"` (ou `java -cp /app/app.jar com.lucascanno.romcatalog.auth.TokenIssuerCliKt --scope admin` dentro do container) emite um token sem conta no banco — use se você se trancar pra fora. Esse token **não** serve em `GET /auth/me` nem `POST /auth/change-credentials` (não tem usuário real), mas serve em `/admin/users` pra recriar contas.
+
+**No app:** guarde o token em armazenamento seguro (EncryptedSharedPreferences / DataStore); no launch, se não expirou, pula o login. Em `401`, volta pra tela de login. Sem refresh token — expirou, loga de novo (~1x por semana).
+
+---
+
+## Endpoints — Contas
+
+### `POST /auth/login` — público
+
+```json
+{ "username": "amigo", "password": "temp-123" }
 ```
 
-Claims do token: `iss=rom-catalog-api`, `aud=rom-catalog-app`, `sub`, `scope` (`user`|`admin`), `iat`, `exp`.
+```json
+200
+{
+  "token": "eyJ…",
+  "tokenType": "Bearer",
+  "expiresInSeconds": 604800,
+  "role": "user",
+  "mustChangeCredentials": true
+}
+```
 
-**No app:** guarde o token em armazenamento seguro (EncryptedSharedPreferences / DataStore). Em qualquer `401`, trate como "token inválido ou expirado" e peça um novo (colar manualmente). Uso pessoal, um usuário — não há refresh.
+```
+401 INVALID_CREDENTIALS   (usuário desconhecido OU senha errada — mesma resposta)
+```
+
+### `GET /auth/me` — auth
+
+```json
+200 { "id": "…", "username": "amigo", "role": "user", "mustChangeCredentials": false }
+401                       (token break-glass, sem usuário real, também dá 401)
+```
+
+### `POST /auth/change-credentials` — auth
+
+Troca o próprio login e/ou senha. Exige a senha atual. Devolve um **token novo** (o `sub`/`username` podem ter mudado) no mesmo shape de `/auth/login`.
+
+```json
+{ "currentPassword": "temp-123", "newUsername": "meu-nome", "newPassword": "minha-senha-forte" }
+```
+
+```
+200 → LoginResponse (com mustChangeCredentials: false)
+400 NOTHING_TO_CHANGE | WEAK_PASSWORD (< 8) | INVALID_USERNAME (3-64: letras, dígitos, . _ -)
+401 INVALID_CREDENTIALS   (currentPassword errada)
+409 USERNAME_TAKEN
+```
+
+### `GET /admin/users` — auth `admin`
+
+`200 → [ { id, username, role, mustChangeCredentials, createdAt } ]`
+
+### `POST /admin/users` — auth `admin`
+
+```json
+{ "username": "amigo", "password": "temp-123", "role": "user" }   // role opcional, default "user"
+```
+
+```
+201 → UserDto (mustChangeCredentials: true)
+400 INVALID_USERNAME | WEAK_PASSWORD | INVALID_ROLE
+409 USERNAME_TAKEN
+```
+
+### `POST /admin/users/{id}/reset-password` — auth `admin`
+
+`{ "password": "nova-temp" }` → `200 → UserDto` (rearma `mustChangeCredentials`). `404 USER_NOT_FOUND`.
+
+### `DELETE /admin/users/{id}` — auth `admin`
+
+```
+204
+404 USER_NOT_FOUND
+409 LAST_ADMIN | CANNOT_DELETE_SELF
+```
 
 ---
 
@@ -60,6 +129,12 @@ Toda resposta de erro (4xx/5xx) usa o mesmo envelope:
 | 422 | `HASH_MISMATCH` / `SIZE_MISMATCH` | (ingestão JSON) `hash`/`sizeBytes` não batem com o objeto |
 | 503 | `STORAGE_UNAVAILABLE` | MinIO fora do ar, ou objeto da ROM sumiu do bucket |
 | 500 | `INTERNAL_ERROR` | erro não tratado (stacktrace só no log) |
+| 401 | `INVALID_CREDENTIALS` | login: usuário/senha errados; change-credentials: senha atual errada |
+| 400 | `INVALID_USERNAME` / `WEAK_PASSWORD` | username fora de `[A-Za-z0-9._-]{3,64}` / senha < 8 chars |
+| 400 | `NOTHING_TO_CHANGE` / `INVALID_ROLE` | change-credentials sem mudança / role ≠ `user`\|`admin` |
+| 404 | `USER_NOT_FOUND` | usuário inexistente (rotas admin) |
+| 409 | `USERNAME_TAKEN` | username já em uso |
+| 409 | `LAST_ADMIN` / `CANNOT_DELETE_SELF` | não dá pra apagar o único admin / a própria conta |
 
 ---
 

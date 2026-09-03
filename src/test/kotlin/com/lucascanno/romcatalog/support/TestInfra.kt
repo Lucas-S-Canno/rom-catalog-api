@@ -66,7 +66,7 @@ object TestInfra {
 
     fun truncateAll() {
         transaction(db.database) {
-            exec("TRUNCATE TABLE favorites, roms RESTART IDENTITY CASCADE")
+            exec("TRUNCATE TABLE favorites, roms, users RESTART IDENTITY CASCADE")
         }
     }
 

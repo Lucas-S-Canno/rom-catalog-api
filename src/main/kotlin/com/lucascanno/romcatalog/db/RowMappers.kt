@@ -2,7 +2,9 @@ package com.lucascanno.romcatalog.db
 
 import com.lucascanno.romcatalog.domain.Favorite
 import com.lucascanno.romcatalog.domain.GameSystem
+import com.lucascanno.romcatalog.domain.Role
 import com.lucascanno.romcatalog.domain.Rom
+import com.lucascanno.romcatalog.domain.User
 import org.jetbrains.exposed.sql.ResultRow
 
 fun ResultRow.toRom(): Rom = Rom(
@@ -21,4 +23,15 @@ fun ResultRow.toFavorite(): Favorite = Favorite(
     id = this[FavoritesTable.id].value,
     romId = this[FavoritesTable.romId].value,
     createdAt = this[FavoritesTable.createdAt],
+)
+
+fun ResultRow.toUser(): User = User(
+    id = this[UsersTable.id].value,
+    username = this[UsersTable.username],
+    passwordHash = this[UsersTable.passwordHash],
+    role = Role.fromClaim(this[UsersTable.role])
+        ?: error("Unknown role '${this[UsersTable.role]}' stored for user ${this[UsersTable.id].value}"),
+    mustChangeCredentials = this[UsersTable.mustChangeCredentials],
+    createdAt = this[UsersTable.createdAt],
+    updatedAt = this[UsersTable.updatedAt],
 )

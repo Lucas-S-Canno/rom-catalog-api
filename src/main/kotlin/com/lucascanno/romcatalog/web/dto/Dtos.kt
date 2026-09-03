@@ -3,6 +3,7 @@ package com.lucascanno.romcatalog.web.dto
 import com.lucascanno.romcatalog.domain.Favorite
 import com.lucascanno.romcatalog.domain.PageResult
 import com.lucascanno.romcatalog.domain.Rom
+import com.lucascanno.romcatalog.domain.User
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -71,6 +72,69 @@ data class FavoriteDto(
     val romId: String,
     val createdAt: String,
     val rom: RomDto,
+)
+
+// ── auth / users ─────────────────────────────────────────────────────────────
+
+@Serializable
+data class LoginRequest(val username: String, val password: String)
+
+@Serializable
+data class LoginResponse(
+    val token: String,
+    val tokenType: String = "Bearer",
+    val expiresInSeconds: Long,
+    val role: String,
+    val mustChangeCredentials: Boolean,
+)
+
+@Serializable
+data class ChangeCredentialsRequest(
+    val currentPassword: String,
+    val newUsername: String? = null,
+    val newPassword: String? = null,
+)
+
+@Serializable
+data class MeResponse(
+    val id: String,
+    val username: String,
+    val role: String,
+    val mustChangeCredentials: Boolean,
+)
+
+@Serializable
+data class CreateUserRequest(
+    val username: String,
+    val password: String,
+    val role: String? = null, // defaults to "user"
+)
+
+@Serializable
+data class ResetPasswordRequest(val password: String)
+
+@Serializable
+data class UserDto(
+    val id: String,
+    val username: String,
+    val role: String,
+    val mustChangeCredentials: Boolean,
+    val createdAt: String,
+)
+
+fun User.toDto(): UserDto = UserDto(
+    id = id.toString(),
+    username = username,
+    role = role.claim,
+    mustChangeCredentials = mustChangeCredentials,
+    createdAt = createdAt.toString(),
+)
+
+fun User.toMe(): MeResponse = MeResponse(
+    id = id.toString(),
+    username = username,
+    role = role.claim,
+    mustChangeCredentials = mustChangeCredentials,
 )
 
 // ── mappers ──────────────────────────────────────────────────────────────────

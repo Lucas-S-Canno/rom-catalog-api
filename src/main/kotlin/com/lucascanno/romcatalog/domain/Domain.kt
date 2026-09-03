@@ -14,6 +14,34 @@ enum class GameSystem(val api: String) {
     }
 }
 
+/** Account role. `admin` implies every `user` capability. Serialised as the JWT `scope`/`role` claim. */
+enum class Role(val claim: String) {
+    ADMIN("admin"),
+    USER("user");
+
+    companion object {
+        fun fromClaim(value: String?): Role? = entries.firstOrNull { it.claim == value }
+    }
+}
+
+data class User(
+    val id: UUID,
+    val username: String,
+    val passwordHash: String,
+    val role: Role,
+    val mustChangeCredentials: Boolean,
+    val createdAt: Instant,
+    val updatedAt: Instant,
+)
+
+/** Fields needed to create a user. `id`/timestamps are assigned by the repository. */
+data class NewUser(
+    val username: String,
+    val passwordHash: String,
+    val role: Role,
+    val mustChangeCredentials: Boolean = false,
+)
+
 data class Rom(
     val id: UUID,
     val name: String,

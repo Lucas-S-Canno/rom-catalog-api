@@ -1,6 +1,6 @@
 package com.lucascanno.romcatalog.web
 
-import com.lucascanno.romcatalog.auth.Scope
+import com.lucascanno.romcatalog.domain.Role
 import com.lucascanno.romcatalog.support.IntegrationTestBase
 import com.lucascanno.romcatalog.support.TestAuth
 import com.lucascanno.romcatalog.web.dto.ErrorResponse
@@ -95,7 +95,7 @@ class AuthTest : IntegrationTestBase() {
     @Test
     fun `admin route accepts an admin-scoped token`() = testApplication {
         installTestApp()
-        assertEquals(HttpStatusCode.OK, jsonClient(TestAuth.token(Scope.ADMIN)).get("/admin/ping").status)
+        assertEquals(HttpStatusCode.OK, jsonClient(TestAuth.token(Role.ADMIN)).get("/admin/ping").status)
     }
 
     // ── health stays public ────────────────────────────────────────────────

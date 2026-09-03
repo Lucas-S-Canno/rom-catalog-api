@@ -1,13 +1,19 @@
 package com.lucascanno.romcatalog.support
 
 import com.lucascanno.romcatalog.AppDependencies
+import com.lucascanno.romcatalog.auth.PasswordHasher
 import com.lucascanno.romcatalog.config.DownloadConfig
 import com.lucascanno.romcatalog.configureApp
 import com.lucascanno.romcatalog.domain.GameSystem
 import com.lucascanno.romcatalog.domain.NewRom
+import com.lucascanno.romcatalog.domain.NewUser
+import com.lucascanno.romcatalog.domain.Role
+import com.lucascanno.romcatalog.domain.User
 import com.lucascanno.romcatalog.repository.FavoriteRepository
 import com.lucascanno.romcatalog.repository.RomRepository
+import com.lucascanno.romcatalog.repository.UserRepository
 import io.ktor.client.plugins.DefaultRequest
+import kotlinx.coroutines.runBlocking
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
 import io.ktor.client.request.header
 import io.ktor.http.HttpHeaders
@@ -25,6 +31,19 @@ abstract class IntegrationTestBase {
     protected val storage get() = TestInfra.storage
     protected val romRepository: RomRepository by lazy { RomRepository(db.database) }
     protected val favoriteRepository: FavoriteRepository by lazy { FavoriteRepository(db.database) }
+    protected val userRepository: UserRepository by lazy { UserRepository(db.database) }
+
+    /** Fast hasher (cost 4) for seeding test users. */
+    protected val testHasher = PasswordHasher(cost = 4)
+
+    protected fun seedUser(
+        username: String,
+        password: String,
+        role: Role = Role.USER,
+        mustChangeCredentials: Boolean = false,
+    ): User = runBlocking {
+        userRepository.create(NewUser(username, testHasher.hash(password), role, mustChangeCredentials))
+    }
 
     @BeforeEach
     fun resetState() {

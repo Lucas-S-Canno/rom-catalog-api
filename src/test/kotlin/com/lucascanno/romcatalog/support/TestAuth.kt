@@ -1,7 +1,7 @@
 package com.lucascanno.romcatalog.support
 
 import com.lucascanno.romcatalog.auth.JwtService
-import com.lucascanno.romcatalog.auth.Scope
+import com.lucascanno.romcatalog.domain.Role
 import com.lucascanno.romcatalog.config.AuthConfig
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
@@ -16,22 +16,24 @@ object TestAuth {
         jwtIssuer = "rom-catalog-api-test",
         jwtAudience = "rom-catalog-app-test",
         jwtRealm = "rom-catalog-test",
+        tokenTtlHours = 24,
+        bcryptCost = 4,
     )
 
     private val service = JwtService(config)
 
-    val userToken: String = service.issue(Scope.USER, Duration.ofHours(1))
-    val adminToken: String = service.issue(Scope.ADMIN, Duration.ofHours(1))
+    val userToken: String = service.issueBreakGlass(Role.USER, Duration.ofHours(1))
+    val adminToken: String = service.issueBreakGlass(Role.ADMIN, Duration.ofHours(1))
 
-    fun token(scope: Scope, ttl: Duration = Duration.ofHours(1)): String = service.issue(scope, ttl)
+    fun token(scope: Role, ttl: Duration = Duration.ofHours(1)): String = service.issueBreakGlass(scope, ttl)
 
-    fun expiredToken(scope: Scope = Scope.USER): String = service.issue(scope, Duration.ofSeconds(-30))
+    fun expiredToken(scope: Role = Role.USER): String = service.issueBreakGlass(scope, Duration.ofSeconds(-30))
 
-    fun tokenSignedWith(secret: String, scope: Scope = Scope.USER): String =
-        JwtService(config.copy(jwtSecret = secret)).issue(scope, Duration.ofHours(1))
+    fun tokenSignedWith(secret: String, scope: Role = Role.USER): String =
+        JwtService(config.copy(jwtSecret = secret)).issueBreakGlass(scope, Duration.ofHours(1))
 
-    fun tokenWithIssuer(issuer: String, scope: Scope = Scope.USER): String =
-        JwtService(config.copy(jwtIssuer = issuer)).issue(scope, Duration.ofHours(1))
+    fun tokenWithIssuer(issuer: String, scope: Role = Role.USER): String =
+        JwtService(config.copy(jwtIssuer = issuer)).issueBreakGlass(scope, Duration.ofHours(1))
 }
 
 fun HttpRequestBuilder.bearer(token: String) {

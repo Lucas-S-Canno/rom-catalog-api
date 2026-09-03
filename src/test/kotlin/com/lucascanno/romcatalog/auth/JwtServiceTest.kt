@@ -4,6 +4,7 @@ import com.auth0.jwt.exceptions.IncorrectClaimException
 import com.auth0.jwt.exceptions.SignatureVerificationException
 import com.auth0.jwt.exceptions.TokenExpiredException
 import com.lucascanno.romcatalog.config.AuthConfig
+import com.lucascanno.romcatalog.domain.Role
 import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -22,27 +23,28 @@ class JwtServiceTest {
 
     @Test
     fun `a freshly issued token passes the matching verifier`() {
-        val token = service.issue(Scope.USER, Duration.ofMinutes(5))
+        val token = service.issueBreakGlass(Role.USER, Duration.ofMinutes(5))
 
         val decoded = service.verifier().verify(token)
 
         assertEquals("user", decoded.getClaim("scope").asString())
+        assertEquals("user", decoded.getClaim("role").asString())
         assertEquals("iss-under-test", decoded.issuer)
         assertTrue(decoded.audience.contains("aud-under-test"))
-        assertEquals("rom-catalog-user", decoded.subject)
+        assertEquals("break-glass-user", decoded.subject)
         assertNotNull(decoded.expiresAt)
     }
 
     @Test
     fun `admin scope survives the round-trip`() {
-        val token = service.issue(Scope.ADMIN, Duration.ofMinutes(5))
+        val token = service.issueBreakGlass(Role.ADMIN, Duration.ofMinutes(5))
 
         assertEquals("admin", service.verifier().verify(token).getClaim("scope").asString())
     }
 
     @Test
     fun `an expired token is rejected`() {
-        val token = service.issue(Scope.USER, Duration.ofSeconds(-5))
+        val token = service.issueBreakGlass(Role.USER, Duration.ofSeconds(-5))
 
         val ex = assertFailsWith<TokenExpiredException> { service.verifier().verify(token) }
         assertTrue(ex.message?.contains("expired", ignoreCase = true) == true)
@@ -50,7 +52,7 @@ class JwtServiceTest {
 
     @Test
     fun `a token signed with another secret is rejected`() {
-        val foreign = JwtService(config.copy(jwtSecret = "some-other-secret-0000000000")).issue(Scope.USER, Duration.ofMinutes(5))
+        val foreign = JwtService(config.copy(jwtSecret = "some-other-secret-0000000000")).issueBreakGlass(Role.USER, Duration.ofMinutes(5))
 
         val ex = assertFailsWith<SignatureVerificationException> { service.verifier().verify(foreign) }
         assertNotNull(ex)
@@ -58,7 +60,7 @@ class JwtServiceTest {
 
     @Test
     fun `a token from another issuer is rejected`() {
-        val foreign = JwtService(config.copy(jwtIssuer = "evil-issuer")).issue(Scope.USER, Duration.ofMinutes(5))
+        val foreign = JwtService(config.copy(jwtIssuer = "evil-issuer")).issueBreakGlass(Role.USER, Duration.ofMinutes(5))
 
         val ex = assertFailsWith<IncorrectClaimException> { service.verifier().verify(foreign) }
         assertEquals("iss", ex.claimName)

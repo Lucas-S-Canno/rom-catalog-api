@@ -8,10 +8,12 @@ data:
   LOG_LEVEL: "INFO"
   PORT: "8080"
 
-  # JWT — the signing secret itself lives in the Secret, not here.
+  # JWT — the signing secret and admin bootstrap creds live in the Secret, not here.
   JWT_ISSUER: "rom-catalog-api"
   JWT_AUDIENCE: "rom-catalog-app"
   JWT_REALM: "rom-catalog"
+  JWT_TTL_HOURS: "168"
+  BCRYPT_COST: "12"
 
   # MinIO. ENDPOINT is the in-cluster address the API talks to; PUBLIC_ENDPOINT is
   # what the presigned download URLs are signed with and MUST be reachable from the

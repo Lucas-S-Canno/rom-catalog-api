@@ -20,9 +20,14 @@
       "data": {
         "base_url": "http://localhost:8080",
         "storage_url": "http://localhost:9000",
-        "token": "PASTE_USER_TOKEN_HERE",
-        "admin_token": "PASTE_ADMIN_TOKEN_HERE",
-        "rom_id": "00000000-0000-0000-0000-000000000000"
+        "token": "PASTE_TOKEN_FROM_LOGIN",
+        "admin_token": "PASTE_ADMIN_TOKEN_FROM_LOGIN",
+        "rom_id": "00000000-0000-0000-0000-000000000000",
+        "user_id": "00000000-0000-0000-0000-000000000000",
+        "login_username": "lucas",
+        "login_password": "your-password",
+        "new_username": "amigo",
+        "temp_password": "temp-pass-123"
       },
       "metaSortKey": 1
     },
@@ -39,6 +44,7 @@
     },
 
     { "_id": "fld_health",    "_type": "request_group", "parentId": "wrk_romcatalog", "name": "Health",    "metaSortKey": -400, "authentication": {}, "environment": {} },
+    { "_id": "fld_auth",      "_type": "request_group", "parentId": "wrk_romcatalog", "name": "Auth",      "metaSortKey": -350, "authentication": {}, "environment": {} },
     { "_id": "fld_catalog",   "_type": "request_group", "parentId": "wrk_romcatalog", "name": "Catálogo",  "metaSortKey": -300, "authentication": { "type": "bearer", "token": "{{ _.token }}" }, "environment": {} },
     { "_id": "fld_favorites", "_type": "request_group", "parentId": "wrk_romcatalog", "name": "Favoritos", "metaSortKey": -200, "authentication": { "type": "bearer", "token": "{{ _.token }}" }, "environment": {} },
     { "_id": "fld_admin",     "_type": "request_group", "parentId": "wrk_romcatalog", "name": "Admin",     "metaSortKey": -100, "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" }, "environment": {} },
@@ -66,6 +72,49 @@
       "metaSortKey": -390
     },
 
+    {
+      "_id": "req_auth_login",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "POST /auth/login (público)",
+      "description": "Copie o `token` da resposta para o environment var `token` (ou `admin_token`).",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/login",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"{{ _.login_username }}\",\n  \"password\": \"{{ _.login_password }}\"\n}"
+      },
+      "authentication": {},
+      "metaSortKey": -350
+    },
+    {
+      "_id": "req_auth_me",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "GET /auth/me",
+      "method": "GET",
+      "url": "{{ _.base_url }}/auth/me",
+      "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ _.token }}" },
+      "metaSortKey": -340
+    },
+    {
+      "_id": "req_auth_change",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "POST /auth/change-credentials",
+      "description": "Troca o próprio login/senha. Devolve um token novo.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/change-credentials",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"currentPassword\": \"{{ _.temp_password }}\",\n  \"newUsername\": \"{{ _.new_username }}\",\n  \"newPassword\": \"a-strong-new-password\"\n}"
+      },
+      "authentication": { "type": "bearer", "token": "{{ _.token }}" },
+      "metaSortKey": -330
+    },
     {
       "_id": "req_roms_list",
       "_type": "request",
@@ -154,6 +203,55 @@
       "headers": [],
       "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
       "metaSortKey": -100
+    },
+    {
+      "_id": "req_admin_users_list",
+      "_type": "request",
+      "parentId": "fld_admin",
+      "name": "GET /admin/users",
+      "method": "GET",
+      "url": "{{ _.base_url }}/admin/users",
+      "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
+      "metaSortKey": -99
+    },
+    {
+      "_id": "req_admin_users_create",
+      "_type": "request",
+      "parentId": "fld_admin",
+      "name": "POST /admin/users (cria conta temporária)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/admin/users",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"{{ _.new_username }}\",\n  \"password\": \"{{ _.temp_password }}\",\n  \"role\": \"user\"\n}"
+      },
+      "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
+      "metaSortKey": -98
+    },
+    {
+      "_id": "req_admin_users_reset",
+      "_type": "request",
+      "parentId": "fld_admin",
+      "name": "POST /admin/users/{id}/reset-password",
+      "method": "POST",
+      "url": "{{ _.base_url }}/admin/users/{{ _.user_id }}/reset-password",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": { "mimeType": "application/json", "text": "{\n  \"password\": \"new-temp-pass\"\n}" },
+      "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
+      "metaSortKey": -97
+    },
+    {
+      "_id": "req_admin_users_delete",
+      "_type": "request",
+      "parentId": "fld_admin",
+      "name": "DELETE /admin/users/{id}",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/admin/users/{{ _.user_id }}",
+      "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
+      "metaSortKey": -96
     },
     {
       "_id": "req_admin_upload",

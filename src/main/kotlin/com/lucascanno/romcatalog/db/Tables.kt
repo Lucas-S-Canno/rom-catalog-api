@@ -23,3 +23,12 @@ object FavoritesTable : UUIDTable("favorites") {
     val romId = reference("rom_id", RomsTable, onDelete = ReferenceOption.CASCADE)
     val createdAt = timestamp("created_at")
 }
+
+object UsersTable : UUIDTable("users") {
+    val username = text("username")
+    val passwordHash = text("password_hash")
+    val role = varchar("role", 8)
+    val mustChangeCredentials = bool("must_change_credentials")
+    val createdAt = timestamp("created_at")
+    val updatedAt = timestamp("updated_at")
+}

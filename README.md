@@ -45,6 +45,12 @@ App Android → Ktor API (auth, catálogo, favoritos, presigned URLs) → MinIO 
 |---|---|---|---|
 | GET | `/health` | Liveness da API (não toca em dependências) | ✅ |
 | GET | `/health/ready` | Readiness — checa Postgres + MinIO; `503` se algum cair. Sem auth | ✅ |
+| POST | `/auth/login` | Público — `{ username, password }` → `{ token, role, mustChangeCredentials, … }` | ✅ |
+| GET | `/auth/me` | Dados da conta do token | ✅ |
+| POST | `/auth/change-credentials` | Troca o próprio login/senha (exige a senha atual); devolve token novo | ✅ |
+| GET · POST | `/admin/users` | (admin) Lista / cria contas (login + senha temporários) | ✅ |
+| POST | `/admin/users/{id}/reset-password` | (admin) Nova senha temporária | ✅ |
+| DELETE | `/admin/users/{id}` | (admin) Remove conta (guarda: último admin / a própria) | ✅ |
 | GET | `/roms` | Lista o catálogo — `?system=GBA\|NDS\|3DS`, `?page=`, `?size=` (máx. 200); resposta paginada `{ items, page, size, total }` | ✅ |
 | GET | `/roms/{id}` | Detalhe de uma ROM (404 se não existir) | ✅ |
 | GET | `/roms/{id}/download` | JSON `{ url, expiresAt, hash, sizeBytes }` com presigned URL do MinIO (404 ROM inexistente, 503 storage indisponível) | ✅ |
@@ -154,32 +160,27 @@ curl http://localhost:8080/health
 
 ## Autenticação
 
-Uso pessoal, um usuário. A API usa **JWT HS256**: todas as rotas exigem `Authorization: Bearer <token>`, exceto `/health`. Rotas `/admin/…` exigem o escopo `admin`.
-
-Os tokens são emitidos manualmente (não há login) com a task Gradle `issueToken`, que assina com o mesmo `JWT_SECRET` do servidor:
+Contas com **login/senha** e dois papéis: `admin` e `user`. `POST /auth/login` devolve um **JWT HS256** (TTL `JWT_TTL_HOURS`, default 7 dias) que vai em `Authorization: Bearer <token>` em tudo, exceto `/health`, `/health/ready` e `/auth/login`. Rotas `/admin/…` exigem papel `admin`. Senhas são **BCrypt** no banco.
 
 ```bash
-# token de usuário, validade 30 dias
-./gradlew -q issueToken --args="--scope user --ttl-days 30"
-
-# token admin (validade padrão: ~10 anos)
-./gradlew -q issueToken --args="--scope admin"
-```
-
-Uso:
-
-```bash
-TOKEN=$(./gradlew -q issueToken --args="--scope user")
+TOKEN=$(curl -s -H 'Content-Type: application/json' \
+  -d '{"username":"lucas","password":"..."}' http://localhost:8080/auth/login | jq -r .token)
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/roms
 ```
 
+**Primeiro admin:** na primeira subida, se não houver admin, um é criado a partir de `ADMIN_USERNAME` / `ADMIN_BOOTSTRAP_PASSWORD` (env → Secret, nunca no git). Idempotente. Depois é só usar o painel `POST /admin/users` para criar contas de amigos (login + senha temporários; o app força a troca no primeiro acesso via `mustChangeCredentials` + `POST /auth/change-credentials`).
+
+**Break-glass:** `./gradlew -q issueToken --args="--scope admin --ttl-days 365"` emite um token sem conta no banco — para recuperar acesso se você se trancar pra fora.
+
+Contrato completo dos endpoints de auth/contas em [`docs/API.md`](docs/API.md).
+
 | Situação | Resposta |
 |---|---|
-| Sem header / token malformado / assinatura inválida / expirado / issuer errado | `401 UNAUTHORIZED` |
-| Token `user` válido numa rota `/admin/…` | `403 FORBIDDEN` |
-| `/health` | sempre aberto |
+| Sem header / token malformado / assinatura inválida / expirado | `401 UNAUTHORIZED` |
+| Login errado | `401 INVALID_CREDENTIALS` |
+| Token `user` numa rota `/admin/…` | `403 FORBIDDEN` |
 
-**Config** (`JWT_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_REALM`): sem `JWT_SECRET` a API cai num segredo de desenvolvimento conhecido e **loga um aviso** — defina um valor forte antes de qualquer deploy. No K3s virá de um `Secret` (Etapa 8).
+**Config** (Secret): `JWT_SECRET` (obrigatório), `ADMIN_USERNAME`, `ADMIN_BOOTSTRAP_PASSWORD`. **ConfigMap:** `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_REALM`, `JWT_TTL_HOURS`, `BCRYPT_COST`.
 
 ## Ingestão
 
@@ -261,8 +262,9 @@ O download de ROMs grandes (3DS, >1 GB) vai direto de `rom-catalog-storage.lucas
   - [x] Etapa 6 — Ingestão: `POST /admin/roms` (multipart + JSON) + task `ingest`
   - [x] Etapa 7 — Observabilidade: `/health/ready`, logs JSON, request-id, timeouts
   - [x] Etapa 8 — Containerização: Dockerfile, manifests K8s, CI (build + smoke + publish), runbook
+  - [x] Etapa 9 — Contas & login: `POST /auth/login`, papéis admin/user, BCrypt, painel `/admin/users`, bootstrap do admin por env
 - [ ] Fase 2 — Integração com o app Android
-- [ ] Fase 3 — Polimento (cache, expiração, sincronização de favoritos)
+- [ ] Fase 3 — Polimento (cache, expiração, sincronização de favoritos, refresh token)
 
 ## Notas de estudo
 

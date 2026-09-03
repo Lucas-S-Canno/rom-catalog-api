@@ -75,6 +75,9 @@ dependencies {
     // Object storage
     implementation("io.minio:minio:$minioVersion")
 
+    // Password hashing
+    implementation("at.favre.lib:bcrypt:0.10.2")
+
     // Logging
     implementation("ch.qos.logback:logback-classic:$logbackVersion")
 

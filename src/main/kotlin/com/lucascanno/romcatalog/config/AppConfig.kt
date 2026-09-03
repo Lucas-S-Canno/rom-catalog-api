@@ -76,6 +76,10 @@ data class AppConfig(
                     jwtIssuer = value("JWT_ISSUER", "rom-catalog-api"),
                     jwtAudience = value("JWT_AUDIENCE", "rom-catalog-app"),
                     jwtRealm = value("JWT_REALM", "rom-catalog"),
+                    tokenTtlHours = value("JWT_TTL_HOURS", "168").toLong(),
+                    bcryptCost = value("BCRYPT_COST", "12").toInt(),
+                    adminUsername = getenv("ADMIN_USERNAME")?.takeIf { it.isNotBlank() },
+                    adminBootstrapPassword = getenv("ADMIN_BOOTSTRAP_PASSWORD")?.takeIf { it.isNotBlank() },
                 ),
             )
         }
@@ -111,17 +115,23 @@ data class DownloadConfig(
 )
 
 /**
- * JWT auth settings (D-01: HS256, single-user, tokens minted by the `issueToken` task).
- * `/health` stays public; every other route needs a `user`- or `admin`-scoped token,
- * and the admin routes need `admin`.
+ * Auth settings. `POST /auth/login` issues tokens with `JWT_TTL_HOURS` lifetime;
+ * the `issueToken` CLI stays as a break-glass path. Passwords are BCrypt-hashed.
+ * On boot, if no admin exists and ADMIN_USERNAME/ADMIN_BOOTSTRAP_PASSWORD are set,
+ * an admin account is created (see AdminBootstrap).
  */
 data class AuthConfig(
     val jwtSecret: String = DEV_INSECURE_SECRET,
     val jwtIssuer: String = "rom-catalog-api",
     val jwtAudience: String = "rom-catalog-app",
     val jwtRealm: String = "rom-catalog",
+    val tokenTtlHours: Long = 168,
+    val bcryptCost: Int = 12,
+    val adminUsername: String? = null,
+    val adminBootstrapPassword: String? = null,
 ) {
     val usingInsecureDefaultSecret: Boolean get() = jwtSecret == DEV_INSECURE_SECRET
+    val tokenTtl: java.time.Duration get() = java.time.Duration.ofHours(tokenTtlHours)
 
     companion object {
         /** Placeholder so `./gradlew run` works locally; MUST be overridden via JWT_SECRET in real use. */

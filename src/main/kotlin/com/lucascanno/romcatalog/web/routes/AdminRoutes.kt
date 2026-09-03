@@ -4,10 +4,15 @@ import com.lucascanno.romcatalog.domain.GameSystem
 import com.lucascanno.romcatalog.error.ApiException
 import com.lucascanno.romcatalog.ingest.SystemDetector
 import com.lucascanno.romcatalog.service.IngestionService
+import com.lucascanno.romcatalog.service.UserService
+import com.lucascanno.romcatalog.web.callerUserId
 import com.lucascanno.romcatalog.web.dto.AdminPingResponse
+import com.lucascanno.romcatalog.web.dto.CreateUserRequest
 import com.lucascanno.romcatalog.web.dto.RegisterRomRequest
+import com.lucascanno.romcatalog.web.dto.ResetPasswordRequest
 import com.lucascanno.romcatalog.web.dto.toDto
 import com.lucascanno.romcatalog.web.requireAdminScope
+import com.lucascanno.romcatalog.web.uuidPathParam
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
@@ -18,6 +23,7 @@ import io.ktor.server.request.receive
 import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
@@ -30,11 +36,36 @@ import java.io.File
  * Admin surface. Mounted inside `authenticate(AUTH_JWT) { ... }`; every handler
  * also calls [requireAdminScope] so a valid `user` token gets 403.
  */
-fun Route.adminRoutes(ingestionService: IngestionService) {
+fun Route.adminRoutes(ingestionService: IngestionService, userService: UserService) {
     route("/admin") {
         get("/ping") {
             call.requireAdminScope()
             call.respond(AdminPingResponse(scope = "admin"))
+        }
+
+        // ── users ────────────────────────────────────────────────────────────
+        route("/users") {
+            get {
+                call.requireAdminScope()
+                call.respond(userService.list().map { it.toDto() })
+            }
+            post {
+                call.requireAdminScope()
+                val body = call.receive<CreateUserRequest>()
+                val user = userService.create(body.username.trim(), body.password, body.role?.trim())
+                call.respond(HttpStatusCode.Created, user.toDto())
+            }
+            post("/{id}/reset-password") {
+                call.requireAdminScope()
+                val body = call.receive<ResetPasswordRequest>()
+                val user = userService.resetPassword(call.uuidPathParam("id"), body.password)
+                call.respond(user.toDto())
+            }
+            delete("/{id}") {
+                call.requireAdminScope()
+                userService.delete(call.uuidPathParam("id"), call.callerUserId())
+                call.respond(HttpStatusCode.NoContent)
+            }
         }
 
         post("/roms") {
