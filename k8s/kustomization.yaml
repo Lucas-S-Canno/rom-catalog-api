@@ -15,6 +15,11 @@ resources:
   # secret.example.yaml is a template — apply the real Secret separately
   # (see k8s/README.md). It is intentionally not listed here.
 
+# newTag is bumped automatically by .github/workflows/ci.yml (job `update-manifest`)
+# on every push to main — CI publishes ghcr.io/.../rom-catalog-api:<sha> and commits
+# the new tag here; Fleet (kustomize) then rolls the Deployment. Pinning to an
+# immutable <sha> instead of `latest` is what makes `imagePullPolicy: IfNotPresent`
+# actually pick up new builds. Do not hand-edit outside a bootstrap.
 images:
   - name: ghcr.io/lucas-s-canno/rom-catalog-api
-    newTag: latest
+    newTag: fd9ee321f3f68defa04b2f2354f7f67b8301abde
