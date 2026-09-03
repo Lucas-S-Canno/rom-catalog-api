@@ -22,4 +22,4 @@ resources:
 # actually pick up new builds. Do not hand-edit outside a bootstrap.
 images:
   - name: ghcr.io/lucas-s-canno/rom-catalog-api
-    newTag: fd9ee321f3f68defa04b2f2354f7f67b8301abde
+    newTag: db92903a1219329756b3e1ebed60270d7ae96998
