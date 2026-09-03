@@ -3,6 +3,9 @@ kind: PersistentVolumeClaim
 metadata:
   name: minio-data
   namespace: rom-catalog
+  annotations:
+    # Survive a `helm uninstall` / Fleet bundle removal — the ROMs are not disposable.
+    helm.sh/resource-policy: keep
 spec:
   accessModes: ["ReadWriteOnce"]
   resources:
