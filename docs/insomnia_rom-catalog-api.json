@@ -1,0 +1,195 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-09-03T00:00:00.000Z",
+  "__export_source": "rom-catalog-api:handwritten",
+  "resources": [
+    {
+      "_id": "wrk_romcatalog",
+      "_type": "workspace",
+      "name": "ROM Catalog API",
+      "description": "Collection completa da ROM Catalog API. Veja docs/API.md.\n\nAntes de usar: no environment, preencha `token` (escopo user) e `admin_token` (escopo admin), e `rom_id` com um id vindo de GET /roms.",
+      "scope": "collection"
+    },
+
+    {
+      "_id": "env_base",
+      "_type": "environment",
+      "parentId": "wrk_romcatalog",
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:8080",
+        "storage_url": "http://localhost:9000",
+        "token": "PASTE_USER_TOKEN_HERE",
+        "admin_token": "PASTE_ADMIN_TOKEN_HERE",
+        "rom_id": "00000000-0000-0000-0000-000000000000"
+      },
+      "metaSortKey": 1
+    },
+    {
+      "_id": "env_homelab",
+      "_type": "environment",
+      "parentId": "env_base",
+      "name": "Homelab",
+      "data": {
+        "base_url": "https://rom-catalog-api.lucascanno.com.br",
+        "storage_url": "https://rom-catalog-storage.lucascanno.com.br"
+      },
+      "metaSortKey": 2
+    },
+
+    { "_id": "fld_health",    "_type": "request_group", "parentId": "wrk_romcatalog", "name": "Health",    "metaSortKey": -400, "authentication": {}, "environment": {} },
+    { "_id": "fld_catalog",   "_type": "request_group", "parentId": "wrk_romcatalog", "name": "Catálogo",  "metaSortKey": -300, "authentication": { "type": "bearer", "token": "{{ _.token }}" }, "environment": {} },
+    { "_id": "fld_favorites", "_type": "request_group", "parentId": "wrk_romcatalog", "name": "Favoritos", "metaSortKey": -200, "authentication": { "type": "bearer", "token": "{{ _.token }}" }, "environment": {} },
+    { "_id": "fld_admin",     "_type": "request_group", "parentId": "wrk_romcatalog", "name": "Admin",     "metaSortKey": -100, "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" }, "environment": {} },
+
+    {
+      "_id": "req_health",
+      "_type": "request",
+      "parentId": "fld_health",
+      "name": "GET /health (liveness)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/health",
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": -400
+    },
+    {
+      "_id": "req_ready",
+      "_type": "request",
+      "parentId": "fld_health",
+      "name": "GET /health/ready (readiness: db + storage)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/health/ready",
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": -390
+    },
+
+    {
+      "_id": "req_roms_list",
+      "_type": "request",
+      "parentId": "fld_catalog",
+      "name": "GET /roms (lista / filtro / paginação)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/roms",
+      "parameters": [
+        { "name": "system", "value": "GBA", "disabled": true, "description": "GBA | NDS | 3DS" },
+        { "name": "page", "value": "0", "disabled": true, "description": "0-based" },
+        { "name": "size", "value": "50", "disabled": true, "description": "1..200" }
+      ],
+      "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ _.token }}" },
+      "metaSortKey": -300
+    },
+    {
+      "_id": "req_roms_get",
+      "_type": "request",
+      "parentId": "fld_catalog",
+      "name": "GET /roms/{id}",
+      "method": "GET",
+      "url": "{{ _.base_url }}/roms/{{ _.rom_id }}",
+      "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ _.token }}" },
+      "metaSortKey": -290
+    },
+    {
+      "_id": "req_roms_download",
+      "_type": "request",
+      "parentId": "fld_catalog",
+      "name": "GET /roms/{id}/download (presigned URL)",
+      "description": "Retorna { url, expiresAt, hash, sizeBytes }. Faça um GET simples na `url` (sem Authorization) para baixar os bytes.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/roms/{{ _.rom_id }}/download",
+      "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ _.token }}" },
+      "metaSortKey": -280
+    },
+
+    {
+      "_id": "req_fav_list",
+      "_type": "request",
+      "parentId": "fld_favorites",
+      "name": "GET /favorites",
+      "method": "GET",
+      "url": "{{ _.base_url }}/favorites",
+      "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ _.token }}" },
+      "metaSortKey": -200
+    },
+    {
+      "_id": "req_fav_add",
+      "_type": "request",
+      "parentId": "fld_favorites",
+      "name": "POST /favorites (add — idempotente 201/200)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/favorites",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"romId\": \"{{ _.rom_id }}\"\n}"
+      },
+      "authentication": { "type": "bearer", "token": "{{ _.token }}" },
+      "metaSortKey": -190
+    },
+    {
+      "_id": "req_fav_del",
+      "_type": "request",
+      "parentId": "fld_favorites",
+      "name": "DELETE /favorites/{romId} (idempotente 204)",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/favorites/{{ _.rom_id }}",
+      "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ _.token }}" },
+      "metaSortKey": -180
+    },
+
+    {
+      "_id": "req_admin_ping",
+      "_type": "request",
+      "parentId": "fld_admin",
+      "name": "GET /admin/ping (confirma escopo admin)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/admin/ping",
+      "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
+      "metaSortKey": -100
+    },
+    {
+      "_id": "req_admin_upload",
+      "_type": "request",
+      "parentId": "fld_admin",
+      "name": "POST /admin/roms (multipart — upload)",
+      "description": "Selecione o arquivo na parte `file`. `name`/`system`/`coverUrl` são opcionais; sem `system`, deduz pela extensão.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/admin/roms",
+      "headers": [],
+      "body": {
+        "mimeType": "multipart/form-data",
+        "params": [
+          { "name": "file", "type": "file", "fileName": "" },
+          { "name": "name", "value": "Meu Jogo", "disabled": true },
+          { "name": "system", "value": "GBA", "disabled": true },
+          { "name": "coverUrl", "value": "", "disabled": true }
+        ]
+      },
+      "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
+      "metaSortKey": -90
+    },
+    {
+      "_id": "req_admin_register",
+      "_type": "request",
+      "parentId": "fld_admin",
+      "name": "POST /admin/roms (json — objeto já no bucket)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/admin/roms",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Pokemon Emerald\",\n  \"system\": \"GBA\",\n  \"hash\": \"a9dec84dfe7f62ab2220bafaef7479da0929d066ece16a6885f6226db19085af\",\n  \"sizeBytes\": 16777216,\n  \"storageKey\": \"GBA/a9dec84dfe7f62ab2220bafaef7479da0929d066ece16a6885f6226db19085af.gba\",\n  \"coverUrl\": null\n}"
+      },
+      "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
+      "metaSortKey": -80
+    }
+  ]
+}
