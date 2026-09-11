@@ -126,6 +126,7 @@ Toda resposta de erro (4xx/5xx) usa o mesmo envelope:
 | 401 | `UNAUTHORIZED` | sem token / token inválido / expirado / issuer errado |
 | 403 | `FORBIDDEN` | token `user` numa rota `/admin/*` |
 | 404 | `ROM_NOT_FOUND` | ROM inexistente |
+| 404 | `COVER_NOT_FOUND` | ROM existe mas não tem capa própria armazenada (`GET /roms/{id}/cover`) |
 | 404 | `NOT_FOUND` | rota inexistente |
 | 409 | — | (ingestão) já existe ROM com esse `hash`; corpo é o `RomDto` existente |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | `POST /admin/roms` sem `Content-Type` multipart/json; `POST /favorites` sem corpo |
@@ -358,6 +359,41 @@ Remove o registro **e** o objeto no bucket. Favoritos que apontam para a ROM sã
 400 INVALID_PATH_PARAM  (id não é UUID)
 404 ROM_NOT_FOUND
 503 STORAGE_UNAVAILABLE
+```
+
+#### `POST /admin/roms/{id}/cover` — envia a capa · auth `admin`
+
+Multipart, parte `file` obrigatória (sempre tratada como imagem — o painel admin reencoda pra JPEG antes de
+enviar). Guarda o objeto em `covers/{id}.jpg` no bucket, sobrescrevendo qualquer capa anterior, e aponta
+`coverUrl` para a rota `GET /roms/{id}/cover` abaixo (deixa de ser uma URL externa).
+
+```
+200 → RomDto
+400 MISSING_FILE        (sem a parte `file`)
+400 INVALID_BODY        (imagem maior que 5 MB)
+404 ROM_NOT_FOUND
+```
+
+#### `GET /roms/{id}/cover` — bytes da capa · auth `user`
+
+Mesmo nível de acesso do resto do catálogo (não é admin-only). Devolve os bytes crus
+(`Content-Type: image/jpeg`, `Cache-Control: private, max-age=86400`) — sem `Content-Length` fixo (chunked).
+
+```
+200 (bytes da imagem)
+404 ROM_NOT_FOUND    (a ROM não existe)
+404 COVER_NOT_FOUND  (a ROM existe mas não tem capa própria armazenada — ex.: coverUrl é um link externo, ou não foi definida)
+```
+
+#### `DELETE /admin/roms/{id}/cover` — remove a capa · auth `admin`
+
+Remove o objeto do bucket (idempotente) e limpa `coverUrl`. Equivalente a
+`PATCH /admin/roms/{id}` com `{ "coverUrl": "" }`, que também faz essa limpeza — esta rota existe por
+clareza no painel.
+
+```
+200 → RomDto
+404 ROM_NOT_FOUND
 ```
 
 ---

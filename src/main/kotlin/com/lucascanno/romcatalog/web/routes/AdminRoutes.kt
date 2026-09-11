@@ -101,7 +101,43 @@ fun Route.adminRoutes(ingestionService: IngestionService, userService: UserServi
             romService.delete(call.uuidPathParam("id"))
             call.respond(HttpStatusCode.NoContent)
         }
+
+        post("/roms/{id}/cover") {
+            call.requireAdminScope()
+            val id = call.uuidPathParam("id")
+            val tempFile = receiveSingleFile(call)
+            try {
+                val dto = tempFile.inputStream().use { input -> romService.uploadCover(id, input, tempFile.length()) }
+                call.respond(dto)
+            } finally {
+                tempFile.delete()
+            }
+        }
+
+        delete("/roms/{id}/cover") {
+            call.requireAdminScope()
+            call.respond(romService.deleteCover(call.uuidPathParam("id")))
+        }
     }
+}
+
+/** Buffers the multipart body's `file` part to a temp file so its size is known upfront. */
+private suspend fun receiveSingleFile(call: ApplicationCall): File {
+    var tempFile: File? = null
+    call.receiveMultipart().forEachPart { part ->
+        if (part is PartData.FileItem && tempFile == null) {
+            val target = withContext(Dispatchers.IO) { File.createTempFile("rom-cover-", ".part") }
+            part.provider().toInputStream().use { input ->
+                withContext(Dispatchers.IO) {
+                    target.outputStream().use { output -> input.copyTo(output) }
+                }
+            }
+            tempFile = target
+        }
+        part.dispose()
+    }
+    return tempFile
+        ?: throw ApiException(HttpStatusCode.BadRequest, "MISSING_FILE", "multipart body must include a 'file' part")
 }
 
 private suspend fun ingestMultipart(call: ApplicationCall, service: IngestionService): IngestionService.Outcome {

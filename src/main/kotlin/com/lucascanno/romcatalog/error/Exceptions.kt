@@ -23,6 +23,10 @@ class StorageUnavailableException(
 fun romNotFound(id: Any): ApiException =
     ApiException(HttpStatusCode.NotFound, "ROM_NOT_FOUND", "ROM '$id' not found")
 
+/** The ROM exists but has no cover image stored (as opposed to the ROM itself being unknown). */
+fun coverNotFound(id: Any): ApiException =
+    ApiException(HttpStatusCode.NotFound, "COVER_NOT_FOUND", "ROM '$id' has no stored cover image")
+
 fun invalidQueryParam(name: String, reason: String): ApiException =
     ApiException(HttpStatusCode.BadRequest, "INVALID_QUERY_PARAM", "Query parameter '$name' $reason")
 

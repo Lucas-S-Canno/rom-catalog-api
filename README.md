@@ -61,6 +61,9 @@ App Android → Ktor API (auth, catálogo, favoritos, presigned URLs) → MinIO 
 | POST | `/admin/roms` | (admin) Ingestão: `multipart/form-data` (upload) ou `application/json` (objeto já no bucket); dedup por hash → `409` | ✅ |
 | PATCH | `/admin/roms/{id}` | (admin) Edita metadata mutável (`name`, `coverUrl`); `404` se não existir | ✅ |
 | DELETE | `/admin/roms/{id}` | (admin) Remove registro + objeto no bucket (favoritos em cascata); `404` / `503` | ✅ |
+| POST | `/admin/roms/{id}/cover` | (admin) Envia a capa (multipart, `file`); guarda em `covers/{id}.jpg`, aponta `coverUrl` pra `GET /roms/{id}/cover` | ✅ |
+| GET | `/roms/{id}/cover` | Bytes da capa própria da ROM (não admin-only); `404 ROM_NOT_FOUND` / `404 COVER_NOT_FOUND` | ✅ |
+| DELETE | `/admin/roms/{id}/cover` | (admin) Remove a capa (objeto + `coverUrl`) | ✅ |
 
 > Todas as respostas de erro usam o envelope `{ "error": { "code", "message" } }`.
 > **Autenticação:** todas as rotas exigem `Authorization: Bearer <JWT>` exceto `/health`.

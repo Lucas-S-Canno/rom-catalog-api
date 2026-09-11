@@ -315,6 +315,44 @@
       "headers": [],
       "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
       "metaSortKey": -60
+    },
+    {
+      "_id": "req_admin_rom_cover_upload",
+      "_type": "request",
+      "parentId": "fld_admin",
+      "name": "POST /admin/roms/{id}/cover (envia a capa)",
+      "description": "Selecione a imagem na parte `file`. Guarda em covers/{id}.jpg, sobrescrevendo qualquer capa anterior.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/admin/roms/{{ _.rom_id }}/cover",
+      "headers": [],
+      "body": {
+        "mimeType": "multipart/form-data",
+        "params": [{ "name": "file", "type": "file", "fileName": "" }]
+      },
+      "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
+      "metaSortKey": -55
+    },
+    {
+      "_id": "req_rom_cover_get",
+      "_type": "request",
+      "parentId": "fld_catalog",
+      "name": "GET /roms/{id}/cover (bytes da capa)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/roms/{{ _.rom_id }}/cover",
+      "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ _.token }}" },
+      "metaSortKey": -270
+    },
+    {
+      "_id": "req_admin_rom_cover_delete",
+      "_type": "request",
+      "parentId": "fld_admin",
+      "name": "DELETE /admin/roms/{id}/cover (remove a capa)",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/admin/roms/{{ _.rom_id }}/cover",
+      "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
+      "metaSortKey": -50
     }
   ]
 }
