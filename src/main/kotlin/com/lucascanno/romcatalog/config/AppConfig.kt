@@ -16,6 +16,7 @@ data class AppConfig(
     val database: DatabaseConfig,
     val storage: StorageConfig,
     val download: DownloadConfig = DownloadConfig(),
+    val upload: UploadConfig = UploadConfig(),
     val auth: AuthConfig = AuthConfig(),
     val cors: CorsConfig = CorsConfig(),
 ) {
@@ -76,6 +77,9 @@ data class AppConfig(
                 download = DownloadConfig(
                     urlTtlSeconds = value("DOWNLOAD_URL_TTL_SECONDS", "900").toLong(),
                 ),
+                upload = UploadConfig(
+                    urlTtlSeconds = value("UPLOAD_URL_TTL_SECONDS", "3600").toLong(),
+                ),
                 // Unset → no CORS at all. The mobile app is native (no CORS) and the
                 // admin panel is served same-origin behind nginx, so CORS only matters
                 // when you point a browser dev server straight at this API — set it then.
@@ -121,6 +125,15 @@ data class StorageConfig(
 data class DownloadConfig(
     /** Lifetime of a presigned download URL (D-09). */
     val urlTtlSeconds: Long = 900,
+)
+
+data class UploadConfig(
+    /**
+     * Lifetime of a presigned upload (PUT) URL. Generous default: unlike a
+     * download, a stalled/slow large-ROM upload can't just re-request a fresh
+     * URL mid-transfer without starting over.
+     */
+    val urlTtlSeconds: Long = 3600,
 )
 
 /**

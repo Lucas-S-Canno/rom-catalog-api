@@ -254,6 +254,22 @@
       "metaSortKey": -96
     },
     {
+      "_id": "req_admin_presign_upload",
+      "_type": "request",
+      "parentId": "fld_admin",
+      "name": "POST /admin/roms/presign-upload (ROM grande — upload direto)",
+      "description": "Devolve { uploadUrl, storageKey, expiresAt }. Faça um PUT simples dos bytes na `uploadUrl` (sem Authorization), depois confirme com 'POST /admin/roms (json)' usando o mesmo storageKey.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/admin/roms/presign-upload",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"system\": \"3DS\",\n  \"filename\": \"Some Game (USA).3ds\"\n}"
+      },
+      "authentication": { "type": "bearer", "token": "{{ _.admin_token }}" },
+      "metaSortKey": -91
+    },
+    {
       "_id": "req_admin_upload",
       "_type": "request",
       "parentId": "fld_admin",

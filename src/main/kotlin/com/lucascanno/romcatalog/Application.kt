@@ -7,6 +7,7 @@ import com.lucascanno.romcatalog.config.AppConfig
 import com.lucascanno.romcatalog.config.AuthConfig
 import com.lucascanno.romcatalog.config.CorsConfig
 import com.lucascanno.romcatalog.config.DownloadConfig
+import com.lucascanno.romcatalog.config.UploadConfig
 import com.lucascanno.romcatalog.db.DatabaseFactory
 import com.lucascanno.romcatalog.repository.FavoriteRepository
 import com.lucascanno.romcatalog.repository.RomRepository
@@ -57,7 +58,10 @@ fun Application.module(config: AppConfig = AppConfig.fromEnv()) {
     val storage = MinioStorageClient.create(config.storage)
     storage.ensureBucket()
 
-    val deps = AppDependencies.of(db.database, storage, config.download, config.auth, corsConfig = config.cors)
+    val deps = AppDependencies.of(
+        db.database, storage, config.download, config.auth,
+        corsConfig = config.cors, uploadConfig = config.upload,
+    )
 
     runBlocking {
         AdminBootstrap.run(UserRepository(db.database), PasswordHasher(config.auth.bcryptCost), config.auth)
@@ -108,6 +112,7 @@ data class AppDependencies(
             downloadConfig: DownloadConfig = DownloadConfig(),
             authConfig: AuthConfig = AuthConfig(),
             corsConfig: CorsConfig = CorsConfig(),
+            uploadConfig: UploadConfig = UploadConfig(),
             healthService: HealthService = HealthService.forInfra(database, storage),
         ): AppDependencies {
             val romRepository = RomRepository(database)
@@ -119,7 +124,7 @@ data class AppDependencies(
                 romService = RomService(romRepository, storage),
                 downloadService = DownloadService(romRepository, storage, downloadConfig),
                 favoriteService = FavoriteService(favoriteRepository, romRepository),
-                ingestionService = IngestionService(romRepository, storage),
+                ingestionService = IngestionService(romRepository, storage, uploadConfig),
                 healthService = healthService,
                 authService = AuthService(userRepository, hasher, jwtService, authConfig),
                 userService = UserService(userRepository, hasher),

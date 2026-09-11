@@ -294,6 +294,46 @@ Ordenado do mais recente pro mais antigo. Cada item traz o `RomDto` completo emb
 403 FORBIDDEN   (token user)
 ```
 
+#### `POST /admin/roms/presign-upload` — URL de upload direto pro storage · auth `admin`
+
+**Para ROMs grandes (NDS/3DS)**: o `POST /admin/roms` multipart faz os bytes passarem pelo Ktor — e, se o
+painel estiver atrás de um túnel (Cloudflare, etc.), pelo limite de tamanho de request dele (a Cloudflare
+free/pro, por exemplo, corta em 100 MB). Esta rota devolve uma **presigned PUT URL** do MinIO: o painel sobe
+os bytes **direto pro storage**, sem passar pela API nem pelo túnel — mesma ideia do
+`GET /roms/{id}/download`, só que pro sentido contrário. Só funciona pra download rápido/sem limite quando o
+painel alcança o MinIO pelo endereço da rede local (ver `k8s/README.md`); vindo de fora pela Cloudflare o
+mesmo teto de 100 MB se aplica ao PUT.
+
+```json
+{ "system": "3DS", "filename": "Some Game (USA).3ds" }
+```
+
+```json
+200
+{
+  "uploadUrl": "https://rom-catalog-storage.lucascanno.com.br/roms/3DS/3f9c2e11-….3ds?X-Amz-…",
+  "storageKey": "3DS/3f9c2e11-….3ds",
+  "expiresAt": "2026-09-11T21:00:00Z"
+}
+```
+
+```
+400 INVALID_SYSTEM
+403 FORBIDDEN   (token user)
+```
+
+Fluxo completo:
+1. `POST /admin/roms/presign-upload` → `{ uploadUrl, storageKey, expiresAt }`.
+2. `PUT uploadUrl` com os bytes crus da ROM — **sem** `Authorization` (a autorização está na assinatura da
+   própria URL, igual ao download). TTL padrão 1 hora (`UPLOAD_URL_TTL_SECONDS`) — bem mais folgado que o do
+   download, porque uma transferência grande na rede local pode demorar; se expirar no meio, é pedir uma URL
+   nova e reenviar do zero (sem retomada parcial, por ora).
+3. `POST /admin/roms` em modo `application/json` (abaixo) com `storageKey` igual ao do passo 1 e o `hash`
+   calculado pelo **painel** (sha256 dos mesmos bytes) — isso já existia e não muda nada.
+
+O objeto sobe com nome aleatório (`{system}/{uuid}.{ext}`) em vez de por hash — só se sabe o hash depois do
+upload. Sem efeito prático: o `hash` na tabela `roms` é que importa pra dedup/integridade.
+
 #### `POST /admin/roms` — ingestão de ROM · auth `admin`
 
 Dois modos, pelo `Content-Type`:
@@ -329,7 +369,7 @@ Respostas (ambos os modos):
 422 OBJECT_NOT_FOUND | HASH_MISMATCH | SIZE_MISMATCH   (modo JSON)
 ```
 
-> Na prática a ingestão é feita pela LAN (script `./gradlew ingest` ou upload direto) — o app provavelmente **não** precisa disso. Documentado por completude.
+> Na prática a ingestão é feita pela LAN (script `./gradlew ingest` ou upload direto) — o app provavelmente **não** precisa disso. Documentado por completude. **Pra ROM grande, prefira `POST /admin/roms/presign-upload` + PUT direto** — este endpoint multipart é fino pra capas/ROMs pequenas (GBA em geral cabe nos limites de request comuns) mas não escapa do teto de tamanho de request do túnel/proxy na frente da API.
 
 #### `PATCH /admin/roms/{id}` — edita metadata · auth `admin`
 
