@@ -126,7 +126,7 @@ class RomServiceTest {
     }
 
     @Test
-    fun `update passes a blank coverUrl through as a clear`() = runBlocking {
+    fun `update passes a blank coverUrl through as a clear and cleans up any uploaded cover`() = runBlocking {
         val id = UUID.randomUUID()
         coEvery { repo.update(id, "Novo", null, true) } returns sampleRom(id).copy(name = "Novo")
 
@@ -134,6 +134,7 @@ class RomServiceTest {
 
         assertEquals("Novo", dto.name)
         coVerify { repo.update(id, "Novo", null, true) }
+        coVerify { storage.removeObject("covers/$id.jpg") }
     }
 
     @Test
@@ -143,5 +144,74 @@ class RomServiceTest {
 
         val ex = assertFailsWith<ApiException> { service.update(id, UpdateRomRequest(name = "Novo")) }
         assertEquals("ROM_NOT_FOUND", ex.code)
+    }
+
+    // ── cover ──────────────────────────────────────────────────────────────
+
+    @Test
+    fun `uploadCover stores the object and points coverUrl at the API route`() = runBlocking {
+        val id = UUID.randomUUID()
+        val bytes = "fake jpeg".byteInputStream()
+        coEvery { repo.findById(id) } returns sampleRom(id)
+        coEvery { repo.update(id, null, "/roms/$id/cover", false) } returns
+            sampleRom(id).copy(coverUrl = "/roms/$id/cover")
+
+        val dto = service.uploadCover(id, bytes, 9)
+
+        assertEquals("/roms/$id/cover", dto.coverUrl)
+        coVerify { storage.putObject("covers/$id.jpg", bytes, 9, "image/jpeg") }
+    }
+
+    @Test
+    fun `uploadCover throws 404 when the rom is unknown`() = runBlocking {
+        val id = UUID.randomUUID()
+        coEvery { repo.findById(id) } returns null
+
+        val ex = assertFailsWith<ApiException> { service.uploadCover(id, "x".byteInputStream(), 1) }
+        assertEquals("ROM_NOT_FOUND", ex.code)
+        coVerify(exactly = 0) { storage.putObject(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `uploadCover rejects an oversized image`() = runBlocking {
+        val id = UUID.randomUUID()
+        coEvery { repo.findById(id) } returns sampleRom(id)
+
+        val ex = assertFailsWith<ApiException> {
+            service.uploadCover(id, "x".byteInputStream(), RomService.MAX_COVER_SIZE_BYTES + 1)
+        }
+        assertEquals("INVALID_BODY", ex.code)
+        coVerify(exactly = 0) { storage.putObject(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `openCover throws COVER_NOT_FOUND when the rom has no stored cover`() = runBlocking {
+        val id = UUID.randomUUID()
+        coEvery { repo.findById(id) } returns sampleRom(id)
+        coEvery { storage.objectExists("covers/$id.jpg") } returns false
+
+        val ex = assertFailsWith<ApiException> { service.openCover(id) }
+        assertEquals("COVER_NOT_FOUND", ex.code)
+    }
+
+    @Test
+    fun `openCover throws ROM_NOT_FOUND when the rom itself is unknown`() = runBlocking {
+        val id = UUID.randomUUID()
+        coEvery { repo.findById(id) } returns null
+
+        val ex = assertFailsWith<ApiException> { service.openCover(id) }
+        assertEquals("ROM_NOT_FOUND", ex.code)
+    }
+
+    @Test
+    fun `deleteCover removes the object and clears coverUrl`() = runBlocking {
+        val id = UUID.randomUUID()
+        coEvery { repo.findById(id) } returns sampleRom(id)
+        coEvery { repo.update(id, null, null, true) } returns sampleRom(id).copy(coverUrl = null)
+
+        val dto = service.deleteCover(id)
+
+        assertNull(dto.coverUrl)
+        coVerify { storage.removeObject("covers/$id.jpg") }
     }
 }
