@@ -1,5 +1,6 @@
 package com.lucascanno.romcatalog.service
 
+import com.lucascanno.romcatalog.config.UploadConfig
 import com.lucascanno.romcatalog.domain.GameSystem
 import com.lucascanno.romcatalog.domain.NewRom
 import com.lucascanno.romcatalog.domain.Rom
@@ -10,6 +11,9 @@ import com.lucascanno.romcatalog.repository.RomRepository
 import com.lucascanno.romcatalog.storage.StorageClient
 import io.ktor.http.HttpStatusCode
 import java.io.InputStream
+import java.time.Duration
+import java.time.Instant
+import java.util.UUID
 
 /**
  * The one place that turns a ROM file into a catalog entry. Shared by
@@ -19,7 +23,27 @@ import java.io.InputStream
 class IngestionService(
     private val roms: RomRepository,
     private val storage: StorageClient,
+    private val uploadConfig: UploadConfig = UploadConfig(),
 ) {
+    /** A presigned PUT the caller can upload a ROM's bytes to directly (see [presignUpload]). */
+    data class PresignedUpload(val uploadUrl: String, val storageKey: String, val expiresAt: Instant)
+
+    /**
+     * Mints a presigned PUT URL for a client to upload a ROM's bytes directly to
+     * storage — the API never touches the bytes for this step. The client then
+     * confirms via [ingestExistingObject] (`POST /admin/roms` JSON mode), which
+     * fingerprints the uploaded object and registers it. The object is named by a
+     * random id (not the hash — that isn't known until after upload) but lives
+     * under the right `{system}/` prefix like every other ROM.
+     */
+    fun presignUpload(system: GameSystem, filename: String): PresignedUpload {
+        val extension = SystemDetector.extensionOf(filename).ifEmpty { SystemDetector.defaultExtension(system) }
+        val storageKey = "${system.api}/${UUID.randomUUID()}.$extension"
+        val ttl = Duration.ofSeconds(uploadConfig.urlTtlSeconds)
+        val url = storage.presignedPutUrl(storageKey, ttl)
+        return PresignedUpload(url, storageKey, Instant.now().plus(ttl))
+    }
+
     sealed interface Outcome {
         /** The ROM was (or would be) added. */
         data class Created(val rom: Rom) : Outcome

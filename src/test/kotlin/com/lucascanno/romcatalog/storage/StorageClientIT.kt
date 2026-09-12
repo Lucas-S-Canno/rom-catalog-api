@@ -7,6 +7,7 @@ import com.lucascanno.romcatalog.support.TestInfra
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
+import java.net.http.HttpRequest.BodyPublishers
 import java.net.http.HttpResponse
 import java.time.Duration
 import kotlin.test.Test
@@ -21,6 +22,12 @@ class StorageClientIT : IntegrationTestBase() {
 
     private fun get(url: String): HttpResponse<ByteArray> =
         http.send(HttpRequest.newBuilder(URI.create(url)).GET().build(), HttpResponse.BodyHandlers.ofByteArray())
+
+    private fun put(url: String, bytes: ByteArray): HttpResponse<String> =
+        http.send(
+            HttpRequest.newBuilder(URI.create(url)).PUT(BodyPublishers.ofByteArray(bytes)).build(),
+            HttpResponse.BodyHandlers.ofString(),
+        )
 
     @Test
     fun `objectExists is true after upload and false otherwise`() {
@@ -69,6 +76,40 @@ class StorageClientIT : IntegrationTestBase() {
         val shortUrl = storage.presignedGetUrl("GBA/ttl.bin", Duration.ofSeconds(1))
         Thread.sleep(2500)
         assertEquals(403, get(shortUrl).statusCode())
+    }
+
+    @Test
+    fun `presigned put url uploads bytes that can then be read back`() {
+        val bytes = ByteArray(20_000) { (it % 251).toByte() }
+
+        val url = storage.presignedPutUrl("3DS/direct-upload.bin", Duration.ofMinutes(5))
+        val putResponse = put(url, bytes)
+
+        assertEquals(200, putResponse.statusCode())
+        assertTrue(storage.objectExists("3DS/direct-upload.bin"))
+        assertTrue(bytes.contentEquals(storage.openObject("3DS/direct-upload.bin").readBytes()))
+    }
+
+    @Test
+    fun `presigned put url is signed with the public endpoint host`() {
+        val publicClient = MinioStorageClient.create(
+            TestInfra.storageConfig().copy(publicEndpoint = "http://storage.example.local:9000")
+        )
+
+        val url = publicClient.presignedPutUrl("GBA/hosttest-put.bin", Duration.ofMinutes(5))
+
+        assertTrue(url.startsWith("http://storage.example.local:9000/"), "unexpected url: $url")
+    }
+
+    @Test
+    fun `presigned put url enforces its expiry`() {
+        val bytes = "expiring-put".toByteArray()
+
+        val shortUrl = storage.presignedPutUrl("GBA/ttl-put.bin", Duration.ofSeconds(1))
+        Thread.sleep(2500)
+
+        assertEquals(403, put(shortUrl, bytes).statusCode())
+        assertTrue(!storage.objectExists("GBA/ttl-put.bin"))
     }
 
     @Test

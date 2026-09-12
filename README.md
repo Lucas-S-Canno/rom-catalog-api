@@ -58,6 +58,7 @@ App Android → Ktor API (auth, catálogo, favoritos, presigned URLs) → MinIO 
 | POST | `/favorites` | Favorita uma ROM — body `{ "romId": "<uuid>" }`; idempotente (201 na criação, 200 se já favoritada) | ✅ |
 | DELETE | `/favorites/{romId}` | Remove dos favoritos; idempotente (204) | ✅ |
 | GET | `/admin/ping` | (admin) Placeholder que confirma escopo admin | ✅ |
+| POST | `/admin/roms/presign-upload` | (admin) Presigned **PUT** URL — upload direto pro MinIO, sem passar pela API/túnel (ROMs grandes) | ✅ |
 | POST | `/admin/roms` | (admin) Ingestão: `multipart/form-data` (upload) ou `application/json` (objeto já no bucket); dedup por hash → `409` | ✅ |
 | PATCH | `/admin/roms/{id}` | (admin) Edita metadata mutável (`name`, `coverUrl`); `404` se não existir | ✅ |
 | DELETE | `/admin/roms/{id}` | (admin) Remove registro + objeto no bucket (favoritos em cascata); `404` / `503` | ✅ |
@@ -132,6 +133,7 @@ MINIO_SECRET_KEY=minioadmin
 MINIO_BUCKET=roms
 MINIO_REGION=us-east-1
 DOWNLOAD_URL_TTL_SECONDS=900
+UPLOAD_URL_TTL_SECONDS=3600
 JWT_SECRET=            # defina! sem isso usa um default inseguro conhecido
 JWT_ISSUER=rom-catalog-api
 JWT_AUDIENCE=rom-catalog-app
@@ -190,7 +192,17 @@ Contrato completo dos endpoints de auth/contas em [`docs/API.md`](docs/API.md).
 
 ## Ingestão
 
-Duas formas de popular o catálogo. Ambas passam pelo mesmo `IngestionService` (dedup por sha256).
+Três formas de popular o catálogo. Todas passam pelo mesmo `IngestionService` (dedup por sha256).
+
+### Upload direto pro storage — ROMs grandes (NDS/3DS)
+
+O `POST /admin/roms` multipart faz os bytes passarem pelo Ktor e por qualquer proxy/túnel na frente da API
+(a Cloudflare, por exemplo, corta request em 100 MB). Pra ROM grande, usa presigned URL — mesmo padrão do
+download, só que de upload:
+
+1. `POST /admin/roms/presign-upload` `{ system, filename }` → `{ uploadUrl, storageKey, expiresAt }` (TTL 1h por padrão, `UPLOAD_URL_TTL_SECONDS`).
+2. `PUT uploadUrl` com os bytes crus — direto no MinIO, sem `Authorization`, sem passar pela API. Se o painel alcançar o MinIO pela rede local, nem sai pra internet (ver `k8s/README.md`).
+3. `POST /admin/roms` (modo JSON abaixo) com o `storageKey` do passo 1 e o hash calculado pelo painel.
 
 ### `POST /admin/roms` (escopo admin)
 

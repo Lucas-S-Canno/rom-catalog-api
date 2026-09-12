@@ -5,11 +5,14 @@ import com.lucascanno.romcatalog.support.IntegrationTestBase
 import com.lucascanno.romcatalog.support.TestAuth
 import com.lucascanno.romcatalog.support.TestInfra
 import com.lucascanno.romcatalog.web.dto.ErrorResponse
+import com.lucascanno.romcatalog.web.dto.PresignUploadRequest
+import com.lucascanno.romcatalog.web.dto.PresignUploadResponse
 import com.lucascanno.romcatalog.web.dto.RegisterRomRequest
 import com.lucascanno.romcatalog.web.dto.RomDto
 import io.ktor.client.call.body
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
+import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -18,6 +21,10 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -43,6 +50,14 @@ class AdminIngestRouteTest : IntegrationTestBase() {
 
     private fun romRowCount(): Int =
         TestInfra.query("SELECT count(*) FROM roms") { rs -> rs.getInt(1) }.first()
+
+    private val rawHttp: HttpClient = HttpClient.newHttpClient()
+
+    private fun rawPut(url: String, bytes: ByteArray): Int =
+        rawHttp.send(
+            HttpRequest.newBuilder(URI.create(url)).PUT(HttpRequest.BodyPublishers.ofByteArray(bytes)).build(),
+            HttpResponse.BodyHandlers.discarding(),
+        ).statusCode()
 
     // ── multipart mode ─────────────────────────────────────────────────────
 
@@ -188,6 +203,84 @@ class AdminIngestRouteTest : IntegrationTestBase() {
 
         assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
         assertEquals("OBJECT_NOT_FOUND", response.body<ErrorResponse>().error.code)
+    }
+
+    // ── presigned direct upload ──────────────────────────────────────────────
+
+    @Test
+    fun `presign-upload returns a PUT url named under the system prefix`() = testApplication {
+        installTestApp()
+
+        val response = jsonClient(TestAuth.adminToken).post("/admin/roms/presign-upload") {
+            contentType(ContentType.Application.Json)
+            setBody(PresignUploadRequest(system = "3DS", filename = "Some Game (USA).3ds"))
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val dto: PresignUploadResponse = response.body()
+        assertTrue(dto.storageKey.startsWith("3DS/") && dto.storageKey.endsWith(".3ds"), dto.storageKey)
+        assertTrue(dto.uploadUrl.contains(dto.storageKey))
+        assertTrue(dto.expiresAt.isNotBlank())
+    }
+
+    @Test
+    fun `presign-upload rejects an unknown system`() = testApplication {
+        installTestApp()
+
+        val response = jsonClient(TestAuth.adminToken).post("/admin/roms/presign-upload") {
+            contentType(ContentType.Application.Json)
+            setBody(PresignUploadRequest(system = "PSX", filename = "game.psx"))
+        }
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertEquals("INVALID_SYSTEM", response.body<ErrorResponse>().error.code)
+    }
+
+    @Test
+    fun `presign-upload requires an admin token`() = testApplication {
+        installTestApp()
+        val body = PresignUploadRequest(system = "GBA", filename = "g.gba")
+
+        val anon = jsonClient(token = null).post("/admin/roms/presign-upload") {
+            contentType(ContentType.Application.Json); setBody(body)
+        }
+        val asUser = jsonClient(TestAuth.userToken).post("/admin/roms/presign-upload") {
+            contentType(ContentType.Application.Json); setBody(body)
+        }
+
+        assertEquals(HttpStatusCode.Unauthorized, anon.status)
+        assertEquals(HttpStatusCode.Forbidden, asUser.status)
+    }
+
+    @Test
+    fun `full flow — presign, upload straight to storage, then confirm via json registration`() = testApplication {
+        installTestApp()
+        val client = jsonClient(TestAuth.adminToken)
+        val bytes = ByteArray(50_000) { (it % 253).toByte() }
+        val fp = Hashing.fingerprint(bytes)
+
+        val presigned: PresignUploadResponse = client.post("/admin/roms/presign-upload") {
+            contentType(ContentType.Application.Json)
+            setBody(PresignUploadRequest(system = "3DS", filename = "Big Game.3ds"))
+        }.body()
+
+        // the bytes go straight to storage — no Authorization header, no Ktor involved
+        assertEquals(200, rawPut(presigned.uploadUrl, bytes))
+
+        val confirm = client.post("/admin/roms") {
+            contentType(ContentType.Application.Json)
+            setBody(RegisterRomRequest("Big Game", "3DS", fp.sha256, fp.sizeBytes, presigned.storageKey))
+        }
+        assertEquals(HttpStatusCode.Created, confirm.status)
+        val dto: RomDto = confirm.body()
+        assertEquals(fp.sha256, dto.hash)
+        assertEquals(fp.sizeBytes, dto.sizeBytes)
+
+        val fetched: RomDto = client.get("/roms/${dto.id}").body()
+        assertEquals(presigned.storageKey, TestInfra.query(
+            "SELECT storage_key FROM roms WHERE id = '${dto.id}'"
+        ) { it.getString(1) }.first())
+        assertEquals(dto.id, fetched.id)
     }
 
     // ── auth ───────────────────────────────────────────────────────────────

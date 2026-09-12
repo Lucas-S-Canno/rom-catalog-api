@@ -53,6 +53,20 @@ data class DownloadResponse(
 @Serializable
 data class AdminPingResponse(val scope: String, val status: String = "ok")
 
+/** Request to mint a presigned upload URL, ahead of `POST /admin/roms` (JSON mode). */
+@Serializable
+data class PresignUploadRequest(
+    val system: String,
+    val filename: String,
+)
+
+@Serializable
+data class PresignUploadResponse(
+    val uploadUrl: String,
+    val storageKey: String,
+    val expiresAt: String,
+)
+
 /** JSON body for `POST /admin/roms` when the object is already in the bucket. */
 @Serializable
 data class RegisterRomRequest(

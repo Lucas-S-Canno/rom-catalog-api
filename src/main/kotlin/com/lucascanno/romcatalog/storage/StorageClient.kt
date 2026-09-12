@@ -27,6 +27,13 @@ interface StorageClient {
     /** Offline-signed GET URL. Its host comes from [StorageConfig.publicEndpoint]. */
     fun presignedGetUrl(key: String, ttl: Duration): String
 
+    /**
+     * Offline-signed PUT URL for a direct-to-storage upload — the caller streams
+     * bytes straight to this URL, bypassing the API entirely. No Content-Type is
+     * pinned into the signature, so the uploader can send any (or none).
+     */
+    fun presignedPutUrl(key: String, ttl: Duration): String
+
     fun putObject(key: String, data: InputStream, size: Long, contentType: String)
 
     /**
@@ -89,6 +96,21 @@ class MinioStorageClient(
             )
         } catch (e: Exception) {
             throw StorageUnavailableException("Could not sign download URL for '$key'", e)
+        }
+    }
+
+    override fun presignedPutUrl(key: String, ttl: Duration): String {
+        return try {
+            signingClient.getPresignedObjectUrl(
+                GetPresignedObjectUrlArgs.builder()
+                    .method(Method.PUT)
+                    .bucket(bucket)
+                    .`object`(key)
+                    .expiry(ttl.seconds.toInt(), TimeUnit.SECONDS)
+                    .build()
+            )
+        } catch (e: Exception) {
+            throw StorageUnavailableException("Could not sign upload URL for '$key'", e)
         }
     }
 

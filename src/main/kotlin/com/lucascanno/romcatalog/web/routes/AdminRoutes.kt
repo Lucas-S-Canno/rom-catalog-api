@@ -9,6 +9,8 @@ import com.lucascanno.romcatalog.service.UserService
 import com.lucascanno.romcatalog.web.callerUserId
 import com.lucascanno.romcatalog.web.dto.AdminPingResponse
 import com.lucascanno.romcatalog.web.dto.CreateUserRequest
+import com.lucascanno.romcatalog.web.dto.PresignUploadRequest
+import com.lucascanno.romcatalog.web.dto.PresignUploadResponse
 import com.lucascanno.romcatalog.web.dto.RegisterRomRequest
 import com.lucascanno.romcatalog.web.dto.ResetPasswordRequest
 import com.lucascanno.romcatalog.web.dto.UpdateRomRequest
@@ -69,6 +71,15 @@ fun Route.adminRoutes(ingestionService: IngestionService, userService: UserServi
                 userService.delete(call.uuidPathParam("id"), call.callerUserId())
                 call.respond(HttpStatusCode.NoContent)
             }
+        }
+
+        post("/roms/presign-upload") {
+            call.requireAdminScope()
+            val body = call.receive<PresignUploadRequest>()
+            val system = GameSystem.fromApi(body.system)
+                ?: throw ApiException(HttpStatusCode.BadRequest, "INVALID_SYSTEM", "Unknown system '${body.system}'")
+            val presigned = ingestionService.presignUpload(system, body.filename)
+            call.respond(PresignUploadResponse(presigned.uploadUrl, presigned.storageKey, presigned.expiresAt.toString()))
         }
 
         post("/roms") {
