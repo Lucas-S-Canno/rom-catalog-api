@@ -29,7 +29,9 @@ object TestInfra {
     }
 
     val minio: MinIOContainer by lazy {
-        MinIOContainer(DockerImageName.parse("minio/minio:RELEASE.2023-09-04T19-57-37Z"))
+        // Docker Hub pulled the minio/minio repo (404: "repository does not exist"); MinIO's
+        // own mirror on quay.io is what upstream now points people at.
+        MinIOContainer(DockerImageName.parse("quay.io/minio/minio:RELEASE.2023-09-04T19-57-37Z").asCompatibleSubstituteFor("minio/minio"))
             .also { it.start() }
     }
 
