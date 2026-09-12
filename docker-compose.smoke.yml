@@ -33,7 +33,9 @@ services:
       retries: 20
 
   createbucket:
-    image: minio/mc:RELEASE.2023-09-07T22-48-55Z
+    # Docker Hub pulled minio/mc too (404 "repository does not exist"); same
+    # quay.io mirror fix as the minio service above.
+    image: quay.io/minio/mc:RELEASE.2023-09-07T22-48-55Z
     depends_on:
       minio:
         condition: service_healthy
