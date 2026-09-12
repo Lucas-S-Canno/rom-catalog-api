@@ -34,7 +34,9 @@ spec:
     spec:
       containers:
         - name: minio
-          image: minio/minio:RELEASE.2025-04-08T15-41-24Z
+          # Docker Hub pulled minio/minio (404 "repository does not exist"); quay.io is
+          # MinIO's own mirror, kept in sync with the same tags.
+          image: quay.io/minio/minio:RELEASE.2025-04-08T15-41-24Z
           args: ["server", "/data", "--console-address", ":9001"]
           ports:
             - name: s3

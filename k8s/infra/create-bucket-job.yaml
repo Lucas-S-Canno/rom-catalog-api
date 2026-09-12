@@ -19,7 +19,9 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: mc
-          image: minio/mc:RELEASE.2025-04-08T15-39-49Z
+          # Docker Hub pulled minio/mc too (404 "repository does not exist"); same
+          # quay.io mirror fix as k8s/infra/minio.yaml.
+          image: quay.io/minio/mc:RELEASE.2025-04-08T15-39-49Z
           command: ["/bin/sh", "-c"]
           args:
             - |
