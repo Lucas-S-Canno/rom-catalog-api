@@ -13,6 +13,8 @@ Manifests here are plain YAML + a `kustomization.yaml`. Namespace: `rom-catalog`
 | `kustomization.yaml` | ties it together (`kubectl apply -k k8s/`) |
 | `fleet.yaml` | makes this dir a Fleet bundle (GitOps via Rancher) |
 | `infra/` | **optional** in-cluster Postgres + MinIO + a bucket-creation Job (its own `fleet.yaml`) |
+| `cloudflare-dns01-issuer.yaml` | **optional**, manual apply — cert-manager `ClusterIssuer` so the storage host also gets a valid cert on the LAN-direct path (see below) |
+| `storage-tls-certificate.yaml` | **optional**, manual apply — the actual `Certificate` for `rom-catalog-storage.lucascanno.com.br`, using the issuer above |
 
 ## Deploy with Fleet (Rancher GitOps)
 
@@ -180,6 +182,39 @@ kubectl -n rom-catalog describe pod -l app.kubernetes.io/name=rom-catalog-api
 kubectl -n rom-catalog port-forward svc/rom-catalog-api 8080:80
 curl -s localhost:8080/health/ready | jq
 ```
+
+## TLS pro storage host na rede local (upload direto, sem passar pelo túnel)
+
+`POST /admin/roms/presign-upload` (ver `docs/API.md`) só escapa do teto de tamanho de request
+da Cloudflare se o `PUT` for feito **sem** passar pela borda da Cloudflare — na prática, isso
+significa apontar `rom-catalog-storage.lucascanno.com.br` pra um IP interno (hosts-file, DNS
+split-horizon no roteador/Pi-hole etc.) em vez de deixar resolver pro IP público de sempre.
+
+Só que aí quem termina o TLS deixa de ser a Cloudflare (que tem certificado válido) e passa a
+ser o Traefik do cluster direto — e o `Ingress` do MinIO (`ingress.yaml`) nunca teve um
+certificado configurado (ele foi pensado só pra ser falado em HTTP simples pelo `cloudflared`).
+Resultado: o navegador recusa a conexão com `net::ERR_CERT_AUTHORITY_INVALID`.
+
+Fix (uma vez só, fora do Git):
+
+```bash
+# 1. Confirme que o cert-manager já está de pé:
+kubectl get pods -n cert-manager
+
+# 2. Token da Cloudflare com escopo "Edit zone DNS" SÓ pra zona lucascanno.com.br
+#    (Cloudflare dashboard -> My Profile -> API Tokens -> Create Token), depois:
+kubectl -n cert-manager create secret generic cloudflare-api-token-secret \
+  --from-literal=api-token='<o token>'
+
+# 3. Edite o e-mail em cloudflare-dns01-issuer.yaml, depois:
+kubectl apply -f k8s/cloudflare-dns01-issuer.yaml
+kubectl apply -f k8s/storage-tls-certificate.yaml
+kubectl -n rom-catalog get certificate rom-catalog-storage-tls -w   # espera READY=True
+```
+
+Depois disso o `Ingress` (já ajustado pra escutar em `web,websecure` e apontar `tls:` pro
+Secret que o `Certificate` acima gera) passa a servir um certificado de verdade também pra
+quem chega direto pela LAN — sem precisar trocar nada no painel ou na API.
 
 ## Database migrations
 
