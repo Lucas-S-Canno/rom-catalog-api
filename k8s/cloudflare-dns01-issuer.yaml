@@ -26,7 +26,7 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: REPLACE_WITH_YOUR_EMAIL # only used by Let's Encrypt for expiry/revocation notices
+    email: lucas.s.canno@hotmail.com
     privateKeySecretRef:
       name: cloudflare-dns01-account-key
     solvers:
