@@ -1,0 +1,37 @@
+# Cluster-wide cert-manager ClusterIssuer using a DNS-01 challenge against the
+# Cloudflare API. DNS-01 doesn't need any inbound port open on the cluster — cert-
+# manager just creates/deletes a short-lived TXT record via the Cloudflare API to
+# prove ownership of the zone. That's what makes it work for a host that's only
+# reachable over a Tunnel (or not reachable from the internet at all, like a
+# LAN-only override) — HTTP-01 couldn't issue a cert for those.
+#
+# NOT part of kustomization.yaml on purpose: this needs cert-manager already
+# installed, and the Secret below created out-of-band (never commit the token).
+# Apply manually once, after both prereqs are met:
+#   kubectl apply -f k8s/cloudflare-dns01-issuer.yaml
+#
+# Prereqs (do once, outside of git):
+#   1. cert-manager installed in-cluster (Helm chart `jetstack/cert-manager`).
+#   2. Cloudflare dashboard -> My Profile -> API Tokens -> Create Token
+#      -> "Edit zone DNS" template, scoped to ONLY the `lucascanno.com.br` zone.
+#   3. kubectl -n cert-manager create secret generic cloudflare-api-token-secret \
+#        --from-literal=api-token='<the token>'
+#      (cert-manager reads a ClusterIssuer's secretRef from its own namespace —
+#      default `cert-manager` — regardless of which namespace the Certificate
+#      that uses this issuer lives in.)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: cloudflare-dns01
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: REPLACE_WITH_YOUR_EMAIL # only used by Let's Encrypt for expiry/revocation notices
+    privateKeySecretRef:
+      name: cloudflare-dns01-account-key
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token-secret
+              key: api-token

@@ -33,9 +33,21 @@ metadata:
   name: minio-s3
   namespace: rom-catalog
   annotations:
-    # MinIO uploads/downloads can be large; don't let Traefik buffer them.
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+    # web: plain HTTP, for the external-cloudflared path above (Cloudflare
+    # terminates TLS at its edge and forwards plain HTTP here). websecure: lets
+    # this same host also be reached with a browser-trusted cert DIRECTLY on the
+    # LAN (bypassing the Tunnel, e.g. via a hosts-file/local-DNS override) — that
+    # bypass is what makes POST /admin/roms/presign-upload's PUT able to skip
+    # Cloudflare's request-size cap for big ROMs (see docs/API.md). Needs
+    # k8s/storage-tls-certificate.yaml applied (cert-manager + a ClusterIssuer,
+    # see k8s/cloudflare-dns01-issuer.yaml) — until then, websecure just serves
+    # Traefik's default self-signed cert, which browsers correctly reject.
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 spec:
+  tls:
+    - hosts:
+        - rom-catalog-storage.lucascanno.com.br
+      secretName: rom-catalog-storage-tls
   rules:
     - host: rom-catalog-storage.lucascanno.com.br
       http:

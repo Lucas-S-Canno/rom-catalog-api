@@ -300,9 +300,11 @@ Ordenado do mais recente pro mais antigo. Cada item traz o `RomDto` completo emb
 painel estiver atrás de um túnel (Cloudflare, etc.), pelo limite de tamanho de request dele (a Cloudflare
 free/pro, por exemplo, corta em 100 MB). Esta rota devolve uma **presigned PUT URL** do MinIO: o painel sobe
 os bytes **direto pro storage**, sem passar pela API nem pelo túnel — mesma ideia do
-`GET /roms/{id}/download`, só que pro sentido contrário. Só funciona pra download rápido/sem limite quando o
-painel alcança o MinIO pelo endereço da rede local (ver `k8s/README.md`); vindo de fora pela Cloudflare o
-mesmo teto de 100 MB se aplica ao PUT.
+`GET /roms/{id}/download`, só que pro sentido contrário. Só escapa do teto de tamanho quando o
+painel alcança o MinIO pelo endereço da rede local — o que exige apontar esse host pra um IP
+interno (hosts-file/DNS local) **e** um certificado TLS válido nesse caminho, já que deixa de
+passar pela Cloudflare; ver "TLS pro storage host na rede local" em `k8s/README.md`. Vindo de
+fora pela Cloudflare o mesmo teto de 100 MB se aplica ao PUT.
 
 ```json
 { "system": "3DS", "filename": "Some Game (USA).3ds" }

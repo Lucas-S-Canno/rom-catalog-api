@@ -1,0 +1,28 @@
+# Real (Let's Encrypt, via DNS-01) certificate for the storage host, so it also
+# presents a browser-trusted cert when reached DIRECTLY on the LAN (bypassing the
+# Cloudflare Tunnel — e.g. via a hosts-file/local-DNS override — to get past
+# Cloudflare's request-size cap on the presign-upload PUT, see docs/API.md).
+# Cloudflare's edge already terminates TLS with its own valid cert for anyone
+# going through the Tunnel; this Certificate is what covers the LAN-direct path,
+# which never touches Cloudflare's edge and would otherwise fall back to
+# Traefik's default self-signed cert (net::ERR_CERT_AUTHORITY_INVALID).
+#
+# NOT part of kustomization.yaml on purpose — apply manually, after
+# k8s/cloudflare-dns01-issuer.yaml's prereqs are met:
+#   kubectl apply -f k8s/storage-tls-certificate.yaml
+#   kubectl -n rom-catalog get certificate rom-catalog-storage-tls -w   # wait for READY=True
+#
+# Once READY, k8s/ingress.yaml's `minio-s3` Ingress picks up the resulting Secret
+# automatically (Traefik watches Secrets referenced by an Ingress's `tls:` block).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rom-catalog-storage-tls
+  namespace: rom-catalog
+spec:
+  secretName: rom-catalog-storage-tls
+  issuerRef:
+    name: cloudflare-dns01
+    kind: ClusterIssuer
+  dnsNames:
+    - rom-catalog-storage.lucascanno.com.br
